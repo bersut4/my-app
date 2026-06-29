@@ -19,6 +19,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ThumbUpIcon from '@mui/icons-material/ThumbUp'
 import ThumbDownIcon from '@mui/icons-material/ThumbDown'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import PlayCircleIcon from '@mui/icons-material/PlayCircle'
 import CloseIcon from '@mui/icons-material/Close'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
@@ -243,7 +244,12 @@ export default function PostDetailPage() {
         <Toolbar>
           <IconButton edge="start" onClick={() => navigate('/posts')}><ArrowBackIcon /></IconButton>
           <Typography variant="h3" sx={{ flex: 1, ml: 1 }}>게시글</Typography>
-          {canDelete && <IconButton color="error" onClick={deletePost}><DeleteIcon /></IconButton>}
+          {canDelete && (
+            <>
+              <IconButton onClick={() => navigate(`/posts/${id}/edit`)}><EditIcon /></IconButton>
+              <IconButton color="error" onClick={deletePost}><DeleteIcon /></IconButton>
+            </>
+          )}
         </Toolbar>
       </AppBar>
 

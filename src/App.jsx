@@ -7,6 +7,7 @@ import WeatherPage from './pages/WeatherPage'
 import PostsPage from './pages/PostsPage'
 import PostDetailPage from './pages/PostDetailPage'
 import PostWritePage from './pages/PostWritePage'
+import PostEditPage from './pages/PostEditPage'
 import MyPointsPage from './pages/MyPointsPage'
 import MyPage from './pages/MyPage'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -23,13 +24,14 @@ function AppRoutes() {
 
   return (
     <FontSizeProvider userId={user?.id} initialFontSize={profile?.font_size ?? 'medium'}>
-      <BrowserRouter basename="/vibecoding/my-app">
+      <BrowserRouter basename="/my-app">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/posts" element={<PostsPage />} />
           <Route path="/posts/write" element={<PostWritePage />} />
+          <Route path="/posts/:id/edit" element={<PostEditPage />} />
           <Route path="/posts/:id" element={<PostDetailPage />} />
           <Route path="/mypoints" element={<MyPointsPage />} />
           <Route path="/mypage" element={<MyPage />} />
