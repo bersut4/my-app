@@ -23,6 +23,8 @@ import EditIcon from '@mui/icons-material/Edit'
 import PlayCircleIcon from '@mui/icons-material/PlayCircle'
 import CloseIcon from '@mui/icons-material/Close'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder'
+import BookmarkIcon from '@mui/icons-material/Bookmark'
 import AppLayout from '../components/layout/AppLayout'
 import AdminBadge from '../components/AdminBadge'
 import KakaoMapView from '../components/KakaoMapView'
@@ -198,6 +200,8 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
   const [loading, setLoading] = useState(true)
+  const [savedPointId, setSavedPointId] = useState(null)
+  const [savingPoint, setSavingPoint] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -210,6 +214,33 @@ export default function PostDetailPage() {
       if (p) supabase.from('sh_posts').update({ view_count: (p.view_count ?? 0) + 1 }).eq('id', id)
     })
   }, [id])
+
+  useEffect(() => {
+    if (!user || !post?.location_lat) return
+    supabase.from('sh_points')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('post_id', post.id)
+      .eq('source', 'from_post')
+      .maybeSingle()
+      .then(({ data }) => { if (data) setSavedPointId(data.id) })
+  }, [user, post])
+
+  const savePoint = async () => {
+    if (!user || savedPointId) return
+    setSavingPoint(true)
+    const { data } = await supabase.from('sh_points').insert({
+      user_id: user.id,
+      name: post.location_name || post.title,
+      description: `게시글: ${post.title}`,
+      location_type: 'pin',
+      location_data: { lat: post.location_lat, lng: post.location_lng, address: post.location_name },
+      source: 'from_post',
+      post_id: post.id,
+    }).select('id').single()
+    setSavingPoint(false)
+    if (data) setSavedPointId(data.id)
+  }
 
   const submitComment = async () => {
     if (!commentText.trim() || !user) return
@@ -269,11 +300,25 @@ export default function PostDetailPage() {
             <MediaGallery postId={post.id} />
             {post.location_lat && post.location_lng && (
               <Box sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <LocationOnIcon sx={{ fontSize: 16, color: 'primary.light' }} />
-                  <Typography variant="body2" color="primary.light" sx={{ fontWeight: 600 }}>
-                    {post.location_name || '위치 정보'}
-                  </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <LocationOnIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+                    <Typography variant="body2" color="primary.light" sx={{ fontWeight: 600 }}>
+                      {post.location_name || '위치 정보'}
+                    </Typography>
+                  </Box>
+                  {user && (
+                    <Button
+                      size="small"
+                      variant={savedPointId ? 'contained' : 'outlined'}
+                      startIcon={savedPointId ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                      onClick={savePoint}
+                      disabled={savingPoint || !!savedPointId}
+                      sx={{ minWidth: 110, whiteSpace: 'nowrap' }}
+                    >
+                      {savedPointId ? '저장됨' : savingPoint ? '저장 중...' : '포인트 저장'}
+                    </Button>
+                  )}
                 </Box>
                 <KakaoMapView lat={post.location_lat} lng={post.location_lng} />
               </Box>
