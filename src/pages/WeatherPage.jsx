@@ -13,11 +13,12 @@ import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import Grid from '@mui/material/Grid'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import WbSunnyIcon from '@mui/icons-material/WbSunny'
 import WavesIcon from '@mui/icons-material/Waves'
-import VideocamIcon from '@mui/icons-material/Videocam'
+import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt'
 import AirIcon from '@mui/icons-material/Air'
-import ThermostatIcon from '@mui/icons-material/Thermostat'
 import WaterIcon from '@mui/icons-material/Water'
 import AppLayout from '../components/layout/AppLayout'
 
@@ -49,6 +50,13 @@ const waveHeightLabel = (h) => {
   if (h < 2.0) return { label: '높은 파도', color: '#E76F51' }
   return { label: '매우 높은 파도', color: '#E63946' }
 }
+
+const WINDY_OVERLAYS = [
+  { value: 'waves', label: '파도' },
+  { value: 'wind', label: '바람' },
+  { value: 'rain', label: '강수' },
+  { value: 'temp', label: '기온' },
+]
 
 function WeatherTab({ location }) {
   const [data, setData] = useState(null)
@@ -121,7 +129,6 @@ function WaveTab({ location }) {
     if (!location) return
     setLoading(true)
     setError(null)
-    // ECMWF WAM 모델 사용 (Open-Meteo Marine API)
     const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${location.lat}&longitude=${location.lng}&current=wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_period,swell_wave_height,swell_wave_period&hourly=wave_height,wave_period&timezone=Asia%2FSeoul&forecast_days=1&models=ecmwf_wam`
     fetch(url)
       .then(r => r.json())
@@ -194,14 +201,36 @@ function WaveTab({ location }) {
   )
 }
 
-function CctvTab() {
+function WindyTab({ location }) {
+  const [overlay, setOverlay] = useState('waves')
+
+  const src = `https://embed.windy.com/embed2.html?lat=${location.lat}&lon=${location.lng}&detailLat=${location.lat}&detailLon=${location.lng}&zoom=7&level=surface&overlay=${overlay}&product=ecmwf&message=true&marker=true&calendar=now&type=map&location=coordinates&metricWind=default&metricTemp=default`
+
   return (
-    <Box sx={{ p: 3, textAlign: 'center', mt: 4 }}>
-      <VideocamIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-      <Typography variant="h3" color="text.secondary" sx={{ mb: 1 }}>해변 CCTV</Typography>
-      <Typography color="text.secondary" variant="body2">
-        국가 해양 CCTV 연동은 3차 개발에서 추가될 예정이에요.
-      </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+      <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+        <ToggleButtonGroup
+          value={overlay}
+          exclusive
+          onChange={(_, v) => { if (v) setOverlay(v) }}
+          size="small"
+          fullWidth
+        >
+          {WINDY_OVERLAYS.map(o => (
+            <ToggleButton key={o.value} value={o.value} sx={{ fontSize: '0.75rem', py: 0.5 }}>
+              {o.label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
+      <Box
+        key={src}
+        component="iframe"
+        src={src}
+        sx={{ flex: 1, width: '100%', border: 'none', display: 'block' }}
+        allowFullScreen
+        title="Windy 실시간 기상 지도"
+      />
     </Box>
   )
 }
@@ -221,11 +250,11 @@ export default function WeatherPage() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="날씨" icon={<WbSunnyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="파도" icon={<WavesIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="실시간 지도" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </AppBar>
 
-      <Box sx={{ px: 2, pt: 2 }}>
+      <Box sx={{ px: 2, pt: 2, pb: tab === 2 ? 0 : undefined }}>
         <FormControl fullWidth size="small">
           <InputLabel>해안 지역 선택</InputLabel>
           <Select value={selectedIdx} label="해안 지역 선택" onChange={e => setSelectedIdx(e.target.value)}>
@@ -238,7 +267,7 @@ export default function WeatherPage() {
 
       {tab === 0 && <WeatherTab location={location} />}
       {tab === 1 && <WaveTab location={location} />}
-      {tab === 2 && <CctvTab />}
+      {tab === 2 && <WindyTab location={location} />}
     </AppLayout>
   )
 }
