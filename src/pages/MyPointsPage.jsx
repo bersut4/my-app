@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -15,14 +15,11 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import TextField from '@mui/material/TextField'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
+import IconButton from '@mui/material/IconButton'
 import AddIcon from '@mui/icons-material/Add'
 import RoomIcon from '@mui/icons-material/Room'
 import RouteIcon from '@mui/icons-material/Route'
@@ -31,7 +28,10 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import LockIcon from '@mui/icons-material/Lock'
 import Avatar from '@mui/material/Avatar'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
+import CloseIcon from '@mui/icons-material/Close'
 import AppLayout from '../components/layout/AppLayout'
+import KakaoMapPicker from '../components/KakaoMapPicker'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -40,7 +40,7 @@ function PointCard({ point, onDelete }) {
   const isRoute = point.location_type === 'route'
   const coords = isRoute
     ? `경로 ${point.location_data.length}개 지점`
-    : `위도 ${point.location_data.lat?.toFixed(4)}, 경도 ${point.location_data.lng?.toFixed(4)}`
+    : point.location_data.address || `위도 ${point.location_data.lat?.toFixed(4)}, 경도 ${point.location_data.lng?.toFixed(4)}`
   const log = point.sh_diving_logs?.[0]
 
   return (
@@ -54,7 +54,7 @@ function PointCard({ point, onDelete }) {
           <Chip label={point.source === 'from_post' ? '게시글 저장' : '직접 추가'} size="small" variant="outlined" color={point.source === 'from_post' ? 'secondary' : 'primary'} />
         </Box>
         {point.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, ml: 4 }}>{point.description}</Typography>}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mt: 0.3 }}>{coords} · {date}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mt: 0.3 }}>📍 {coords} · {date}</Typography>
 
         {log && (
           <Box sx={{ mt: 1.5, ml: 4 }}>
@@ -69,6 +69,13 @@ function PointCard({ point, onDelete }) {
               {log.visibility && <Chip label={`시야 ${log.visibility}m`} size="small" variant="outlined" />}
             </Box>
             {log.catch_description && <Typography variant="body2" sx={{ mt: 0.5 }}>🐟 {log.catch_description}</Typography>}
+            {log.catch_image_url && (
+              <Box
+                component="img"
+                src={log.catch_image_url}
+                sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 1, mt: 0.8 }}
+              />
+            )}
             {log.notes && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.3 }}>{log.notes}</Typography>}
           </Box>
         )}
@@ -81,38 +88,71 @@ function PointCard({ point, onDelete }) {
 }
 
 const EMPTY_FORM = {
-  name: '', description: '', location_type: 'pin', lat: '', lng: '',
+  name: '', description: '',
   dive_date: '', max_depth: '', dive_time: '', water_temp: '', visibility: '', catch_description: '', notes: '',
 }
 
 function AddPointDialog({ open, onClose, onAdd, userId }) {
   const [form, setForm] = useState(EMPTY_FORM)
+  const [selectedLocation, setSelectedLocation] = useState(null)
+  const [catchImageFile, setCatchImageFile] = useState(null)
+  const [catchImagePreview, setCatchImagePreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const fileInputRef = useRef(null)
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
 
+  const handleClose = () => {
+    setForm(EMPTY_FORM)
+    setSelectedLocation(null)
+    setCatchImageFile(null)
+    setCatchImagePreview(null)
+    setError('')
+    onClose()
+  }
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setCatchImageFile(file)
+    setCatchImagePreview(URL.createObjectURL(file))
+  }
+
+  const removeImage = () => {
+    setCatchImageFile(null)
+    setCatchImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   const submit = async () => {
     if (!form.name.trim()) { setError('포인트 이름을 입력해주세요.'); return }
-    if (!form.lat || !form.lng) { setError('위도와 경도를 입력해주세요.'); return }
+    if (!selectedLocation) { setError('지도에서 위치를 선택해주세요.'); return }
     setLoading(true)
-
-    const locationData = form.location_type === 'pin'
-      ? { lat: parseFloat(form.lat), lng: parseFloat(form.lng) }
-      : [{ lat: parseFloat(form.lat), lng: parseFloat(form.lng) }]
 
     const { data: point, error: err } = await supabase.from('sh_points').insert({
       user_id: userId,
       name: form.name.trim(),
       description: form.description.trim() || null,
-      location_type: form.location_type,
-      location_data: locationData,
+      location_type: 'pin',
+      location_data: { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name },
     }).select().single()
 
     if (err) { setError('저장에 실패했어요.'); setLoading(false); return }
 
     let divingLog = null
     if (form.dive_date) {
+      let catchImageUrl = null
+      if (catchImageFile) {
+        const ext = catchImageFile.name.split('.').pop()
+        const path = `diving-logs/${userId}/${point.id}_${Date.now()}.${ext}`
+        const { error: upErr } = await supabase.storage.from('sh-media').upload(path, catchImageFile)
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('sh-media').getPublicUrl(path)
+          catchImageUrl = urlData.publicUrl
+        }
+      }
+
       const { data: log } = await supabase.from('sh_diving_logs').insert({
         user_id: userId,
         point_id: point.id,
@@ -122,6 +162,7 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
         water_temp: form.water_temp ? parseFloat(form.water_temp) : null,
         visibility: form.visibility ? parseInt(form.visibility) : null,
         catch_description: form.catch_description || null,
+        catch_image_url: catchImageUrl,
         notes: form.notes || null,
       }).select().single()
       divingLog = log
@@ -129,29 +170,26 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
 
     setLoading(false)
     onAdd({ ...point, sh_diving_logs: divingLog ? [divingLog] : [] })
-    setForm(EMPTY_FORM)
-    setError('')
-    onClose()
+    handleClose()
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>포인트 추가</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="포인트 이름 *" value={form.name} onChange={set('name')} fullWidth />
         <TextField label="메모 (선택)" value={form.description} onChange={set('description')} fullWidth multiline rows={2} />
-        <FormControl fullWidth>
-          <InputLabel>기록 방식</InputLabel>
-          <Select value={form.location_type} label="기록 방식" onChange={set('location_type')}>
-            <MenuItem value="pin">핀 (단일 지점)</MenuItem>
-            <MenuItem value="route">경로 (시작 지점 입력)</MenuItem>
-          </Select>
-        </FormControl>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <TextField label="위도" value={form.lat} onChange={set('lat')} fullWidth placeholder="예: 35.1588" type="number" />
-          <TextField label="경도" value={form.lng} onChange={set('lng')} fullWidth placeholder="예: 129.1603" type="number" />
-        </Box>
+
+        <KakaoMapPicker
+          value={selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null}
+          onChange={setSelectedLocation}
+        />
+        {selectedLocation && (
+          <Typography variant="caption" color="primary.light" sx={{ mt: -1 }}>
+            📍 {selectedLocation.name}
+          </Typography>
+        )}
 
         <Divider sx={{ my: 0.5 }}>
           <Typography variant="caption" color="text.secondary">다이빙 로그 (선택)</Typography>
@@ -167,10 +205,27 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
           <TextField label="시야 (m)" type="number" value={form.visibility} onChange={set('visibility')} fullWidth />
         </Box>
         <TextField label="조과 기록" value={form.catch_description} onChange={set('catch_description')} fullWidth multiline rows={2} placeholder="예: 해삼 3마리, 소라 5개" />
+
+        <Box>
+          <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageSelect} />
+          {catchImagePreview ? (
+            <Box sx={{ position: 'relative' }}>
+              <Box component="img" src={catchImagePreview} sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 1 }} />
+              <IconButton size="small" onClick={removeImage} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.55)' }}>
+                <CloseIcon sx={{ fontSize: 16, color: 'white' }} />
+              </IconButton>
+            </Box>
+          ) : (
+            <Button variant="outlined" size="small" startIcon={<PhotoCameraIcon />} onClick={() => fileInputRef.current?.click()}>
+              조과 사진 추가
+            </Button>
+          )}
+        </Box>
+
         <TextField label="메모" value={form.notes} onChange={set('notes')} fullWidth multiline rows={2} />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>취소</Button>
+        <Button onClick={handleClose}>취소</Button>
         <Button variant="contained" onClick={submit} disabled={loading}>{loading ? '저장 중...' : '저장'}</Button>
       </DialogActions>
     </Dialog>
@@ -236,7 +291,7 @@ function AdminPointsTab() {
               const isRoute = p.location_type === 'route'
               const coords = isRoute
                 ? `경로 ${p.location_data.length}개 지점`
-                : `${p.location_data.lat?.toFixed(4)}, ${p.location_data.lng?.toFixed(4)}`
+                : p.location_data.address || `${p.location_data.lat?.toFixed(4)}, ${p.location_data.lng?.toFixed(4)}`
               const date = new Date(p.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
               return (
                 <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid rgba(0,180,216,0.3)' }}>
