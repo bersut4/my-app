@@ -32,6 +32,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import CloseIcon from '@mui/icons-material/Close'
 import AppLayout from '../components/layout/AppLayout'
 import KakaoMapPicker from '../components/KakaoMapPicker'
+import KakaoMapView from '../components/KakaoMapView'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -76,6 +77,11 @@ function PointCard({ point, onDelete }) {
         </Box>
         {point.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, ml: 4 }}>{point.description}</Typography>}
         <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mt: 0.3 }}>📍 {coords} · {date}</Typography>
+        {!isRoute && point.location_data?.lat && point.location_data?.lng && (
+          <Box sx={{ mt: 1 }}>
+            <KakaoMapView lat={point.location_data.lat} lng={point.location_data.lng} />
+          </Box>
+        )}
 
         {log && (
           <Box sx={{ mt: 1.5, ml: 4 }}>
