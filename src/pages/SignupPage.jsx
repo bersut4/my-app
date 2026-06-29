@@ -5,7 +5,6 @@ import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import Alert from '@mui/material/Alert'
-import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import WavesIcon from '@mui/icons-material/Waves'
@@ -17,26 +16,15 @@ export default function SignupPage() {
   const { signUp } = useAuth()
   const [form, setForm] = useState({ email: '', password: '', passwordConfirm: '', nickname: '', phone: '' })
   const [errors, setErrors] = useState({})
-  const [checks, setChecks] = useState({ email: false, nickname: false })
+  const [checks, setChecks] = useState({ nickname: false })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
   const handle = (e) => {
     const { name, value } = e.target
     setForm(f => ({ ...f, [name]: value }))
-    if (name === 'email') setChecks(c => ({ ...c, email: false }))
     if (name === 'nickname') setChecks(c => ({ ...c, nickname: false }))
     setErrors(e2 => ({ ...e2, [name]: '' }))
-  }
-
-  const checkEmail = async () => {
-    if (!form.email) { setErrors(e => ({ ...e, email: '이메일을 먼저 입력해주세요.' })); return }
-    const { data } = await supabase.from('profiles').select('id').eq('username', form.email)
-    // 이메일은 auth에서 체크 — 중복 시 signUp에서 에러 반환됨
-    const { data: authData } = await supabase.rpc('check_email_exists', { email_input: form.email }).maybeSingle()
-    // fallback: try signup doesn't actually send email if already exists
-    setChecks(c => ({ ...c, email: true }))
-    setErrors(e => ({ ...e, email: '' }))
   }
 
   const checkNickname = async () => {
@@ -45,7 +33,7 @@ export default function SignupPage() {
       setErrors(e => ({ ...e, nickname: '' }))
       return
     }
-    const { data } = await supabase.from('profiles').select('id').eq('nickname', form.nickname).maybeSingle()
+    const { data } = await supabase.from('profiles').select('id').eq('display_name', form.nickname).maybeSingle()
     if (data) {
       setErrors(e => ({ ...e, nickname: '이미 사용 중인 닉네임이에요.' }))
       setChecks(c => ({ ...c, nickname: false }))
@@ -62,7 +50,7 @@ export default function SignupPage() {
     if (!form.password) e.password = '비밀번호를 입력해주세요.'
     else if (form.password.length < 6) e.password = '비밀번호는 6자 이상이어야 해요.'
     if (form.password !== form.passwordConfirm) e.passwordConfirm = '비밀번호가 일치하지 않아요.'
-    if (!checks.nickname && form.nickname) e.nickname = '닉네임 중복 확인을 해주세요.'
+    if (form.nickname && !checks.nickname) e.nickname = '닉네임 중복 확인을 해주세요.'
     return e
   }
 
@@ -82,7 +70,7 @@ export default function SignupPage() {
 
     setLoading(false)
     if (error) {
-      if (error.message.includes('already registered')) {
+      if (error.message.includes('already registered') || error.message.includes('already been registered')) {
         setErrors({ email: '이미 사용 중인 이메일이에요.' })
       } else {
         setErrors({ general: error.message })
@@ -95,13 +83,15 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 3 }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 3, bgcolor: 'background.default' }}>
         <CheckCircleIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
         <Typography variant="h2" sx={{ mb: 1 }}>회원가입 완료!</Typography>
         <Typography color="text.secondary">로그인 페이지로 이동할게요...</Typography>
       </Box>
     )
   }
+
+  const nicknameChecked = checks.nickname && form.nickname
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 3, py: 6, bgcolor: 'background.default' }}>
@@ -120,16 +110,8 @@ export default function SignupPage() {
           value={form.email}
           onChange={handle}
           error={!!errors.email}
-          helperText={errors.email || (checks.email ? '✓ 사용 가능한 이메일이에요.' : '')}
-          FormHelperTextProps={{ sx: checks.email ? { color: 'success.main' } : {} }}
+          helperText={errors.email}
           fullWidth
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <Button size="small" onClick={checkEmail} sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}>중복확인</Button>
-              </InputAdornment>
-            ),
-          }}
         />
 
         <TextField
@@ -160,16 +142,29 @@ export default function SignupPage() {
           value={form.nickname}
           onChange={handle}
           error={!!errors.nickname}
-          helperText={errors.nickname || (checks.nickname && form.nickname ? '✓ 사용 가능한 닉네임이에요.' : '비워두면 씨헌터_XXXXXX 형식으로 자동 생성돼요.')}
-          FormHelperTextProps={{ sx: (checks.nickname && form.nickname) ? { color: 'success.main' } : {} }}
-          fullWidth
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <Button size="small" onClick={checkNickname} sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}>중복확인</Button>
-              </InputAdornment>
-            ),
+          helperText={
+            errors.nickname ||
+            (nicknameChecked ? '✓ 사용 가능한 닉네임이에요.' : '비워두면 씨헌터_XXXXXX 형식으로 자동 생성돼요.')
+          }
+          slotProps={{
+            formHelperText: {
+              sx: nicknameChecked ? { color: 'success.main' } : {},
+            },
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Button
+                    size="small"
+                    onClick={checkNickname}
+                    sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1.5, whiteSpace: 'nowrap' }}
+                  >
+                    중복확인
+                  </Button>
+                </InputAdornment>
+              ),
+            },
           }}
+          fullWidth
         />
 
         <TextField
