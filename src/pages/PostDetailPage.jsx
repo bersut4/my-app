@@ -14,14 +14,66 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Rating from '@mui/material/Rating'
 import Avatar from '@mui/material/Avatar'
 import Alert from '@mui/material/Alert'
+import Dialog from '@mui/material/Dialog'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ThumbUpIcon from '@mui/icons-material/ThumbUp'
 import ThumbDownIcon from '@mui/icons-material/ThumbDown'
 import DeleteIcon from '@mui/icons-material/Delete'
-import RoomIcon from '@mui/icons-material/Room'
+import PlayCircleIcon from '@mui/icons-material/PlayCircle'
+import CloseIcon from '@mui/icons-material/Close'
+import LocationOnIcon from '@mui/icons-material/LocationOn'
 import AppLayout from '../components/layout/AppLayout'
+import AdminBadge from '../components/AdminBadge'
+import KakaoMapView from '../components/KakaoMapView'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+
+function MediaGallery({ postId }) {
+  const [media, setMedia] = useState([])
+  const [lightbox, setLightbox] = useState(null)
+
+  useEffect(() => {
+    supabase.from('sh_post_media').select('*').eq('post_id', postId).order('created_at')
+      .then(({ data }) => setMedia(data ?? []))
+  }, [postId])
+
+  if (!media.length) return null
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        {media.map(m => (
+          <Box
+            key={m.id}
+            onClick={() => setLightbox(m)}
+            sx={{ position: 'relative', width: 100, height: 100, cursor: 'pointer', borderRadius: 1, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            {m.media_type === 'video' ? (
+              <Box sx={{ width: '100%', height: '100%', bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PlayCircleIcon sx={{ color: 'primary.light', fontSize: 36 }} />
+              </Box>
+            ) : (
+              <Box component="img" src={m.file_url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            )}
+          </Box>
+        ))}
+      </Box>
+
+      <Dialog open={!!lightbox} onClose={() => setLightbox(null)} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: '#000', m: 1 } }}>
+        <Box sx={{ position: 'relative' }}>
+          <IconButton onClick={() => setLightbox(null)} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'rgba(0,0,0,0.5)' }}>
+            <CloseIcon />
+          </IconButton>
+          {lightbox?.media_type === 'video' ? (
+            <Box component="video" src={lightbox.file_url} controls autoPlay sx={{ width: '100%', maxHeight: '80vh', display: 'block' }} />
+          ) : (
+            <Box component="img" src={lightbox?.file_url} alt="" sx={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }} />
+          )}
+        </Box>
+      </Dialog>
+    </Box>
+  )
+}
 
 function ReactionBar({ targetType, targetId }) {
   const { user } = useAuth()
@@ -31,9 +83,10 @@ function ReactionBar({ targetType, targetId }) {
   useEffect(() => {
     supabase.from('sh_reactions').select('reaction_type, user_id').eq('target_type', targetType).eq('target_id', targetId)
       .then(({ data }) => {
-        const likes = data?.filter(r => r.reaction_type === 'like').length ?? 0
-        const dislikes = data?.filter(r => r.reaction_type === 'dislike').length ?? 0
-        setCounts({ like: likes, dislike: dislikes })
+        setCounts({
+          like: data?.filter(r => r.reaction_type === 'like').length ?? 0,
+          dislike: data?.filter(r => r.reaction_type === 'dislike').length ?? 0,
+        })
         if (user) setMyReaction(data?.find(r => r.user_id === user.id)?.reaction_type ?? null)
       })
   }, [targetType, targetId, user])
@@ -73,15 +126,22 @@ function CommentItem({ comment, postId, onDelete }) {
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replies, setReplies] = useState([])
+  const isAdmin = comment.profiles?.is_admin
 
   useEffect(() => {
-    supabase.from('sh_comments').select('*, profiles(display_name, avatar_url)').eq('parent_id', comment.id).order('created_at')
+    supabase.from('sh_comments')
+      .select('*, profiles(display_name, avatar_url, is_admin)')
+      .eq('parent_id', comment.id)
+      .order('created_at')
       .then(({ data }) => setReplies(data ?? []))
   }, [comment.id])
 
   const submitReply = async () => {
     if (!replyText.trim() || !user) return
-    const { data } = await supabase.from('sh_comments').insert({ post_id: postId, parent_id: comment.id, user_id: user.id, content: replyText.trim() }).select('*, profiles(display_name, avatar_url)').single()
+    const { data } = await supabase.from('sh_comments')
+      .insert({ post_id: postId, parent_id: comment.id, user_id: user.id, content: replyText.trim() })
+      .select('*, profiles(display_name, avatar_url, is_admin)')
+      .single()
     if (data) { setReplies(r => [...r, data]); setReplyText(''); setReplyOpen(false) }
   }
 
@@ -91,12 +151,15 @@ function CommentItem({ comment, postId, onDelete }) {
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 1.5, py: 1.5 }}>
-        <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark', fontSize: '0.8rem' }}>
+        <Avatar sx={{ width: 32, height: 32, bgcolor: isAdmin ? 'rgba(255,180,0,0.2)' : 'primary.dark', fontSize: '0.8rem', border: isAdmin ? '1px solid rgba(255,180,0,0.5)' : 'none' }}>
           {comment.profiles?.display_name?.[0] ?? '?'}
         </Avatar>
         <Box sx={{ flex: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{comment.profiles?.display_name ?? '익명'}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{comment.profiles?.display_name ?? '익명'}</Typography>
+              {isAdmin && <AdminBadge />}
+            </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography variant="caption" color="text.secondary">{date}</Typography>
               {canDelete && <IconButton size="small" onClick={() => onDelete(comment.id)}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>}
@@ -137,19 +200,22 @@ export default function PostDetailPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('sh_posts').select('*, profiles(display_name, avatar_url)').eq('id', id).single(),
-      supabase.from('sh_comments').select('*, profiles(display_name, avatar_url)').eq('post_id', id).is('parent_id', null).order('created_at'),
+      supabase.from('sh_posts').select('*, profiles(display_name, avatar_url, is_admin)').eq('id', id).single(),
+      supabase.from('sh_comments').select('*, profiles(display_name, avatar_url, is_admin)').eq('post_id', id).is('parent_id', null).order('created_at'),
     ]).then(([{ data: p }, { data: c }]) => {
       setPost(p)
       setComments(c ?? [])
       setLoading(false)
-      supabase.from('sh_posts').update({ view_count: (p?.view_count ?? 0) + 1 }).eq('id', id)
+      if (p) supabase.from('sh_posts').update({ view_count: (p.view_count ?? 0) + 1 }).eq('id', id)
     })
   }, [id])
 
   const submitComment = async () => {
     if (!commentText.trim() || !user) return
-    const { data } = await supabase.from('sh_comments').insert({ post_id: id, user_id: user.id, content: commentText.trim() }).select('*, profiles(display_name, avatar_url)').single()
+    const { data } = await supabase.from('sh_comments')
+      .insert({ post_id: id, user_id: user.id, content: commentText.trim() })
+      .select('*, profiles(display_name, avatar_url, is_admin)')
+      .single()
     if (data) { setComments(c => [...c, data]); setCommentText('') }
   }
 
@@ -168,6 +234,7 @@ export default function PostDetailPage() {
   if (!post) return <Alert severity="error" sx={{ m: 2 }}>게시글을 찾을 수 없어요.</Alert>
 
   const canDelete = user && (user.id === post.user_id || profile?.is_admin)
+  const isPostAdmin = post.profiles?.is_admin
   const date = new Date(post.created_at).toLocaleString('ko-KR')
 
   return (
@@ -185,13 +252,26 @@ export default function PostDetailPage() {
           <CardContent>
             <Typography variant="h2" sx={{ mb: 1 }}>{post.title}</Typography>
             {post.rating && <Rating value={post.rating} readOnly sx={{ mb: 1 }} />}
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
               <Typography variant="caption" color="text.secondary">{post.profiles?.display_name ?? '익명'}</Typography>
+              {isPostAdmin && <AdminBadge />}
               <Typography variant="caption" color="text.secondary">{date}</Typography>
               <Typography variant="caption" color="text.secondary">조회 {post.view_count}</Typography>
             </Box>
             <Divider sx={{ mb: 2 }} />
             <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>{post.content}</Typography>
+            <MediaGallery postId={post.id} />
+            {post.location_lat && post.location_lng && (
+              <Box sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <LocationOnIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+                  <Typography variant="body2" color="primary.light" sx={{ fontWeight: 600 }}>
+                    {post.location_name || '위치 정보'}
+                  </Typography>
+                </Box>
+                <KakaoMapView lat={post.location_lat} lng={post.location_lng} />
+              </Box>
+            )}
             <Box sx={{ mt: 2 }}>
               <ReactionBar targetType="post" targetId={post.id} />
             </Box>
