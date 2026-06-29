@@ -295,7 +295,7 @@ export default function PostDetailPage() {
         {user ? (
           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
             <TextField size="small" fullWidth placeholder="댓글을 입력해주세요..." value={commentText} onChange={e => setCommentText(e.target.value)} multiline maxRows={4} />
-            <Button variant="contained" onClick={submitComment} sx={{ minWidth: 60 }}>등록</Button>
+            <Button variant="contained" onClick={submitComment} sx={{ minWidth: 60, whiteSpace: 'nowrap' }}>등록</Button>
           </Box>
         ) : (
           <Alert severity="info" sx={{ mt: 2 }}>댓글을 작성하려면 로그인이 필요해요.</Alert>
