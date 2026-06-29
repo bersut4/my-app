@@ -25,20 +25,22 @@ const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
 const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
 
 const CCTV_CAMERAS = [
-  { key: 'Incheon',       name: '인천항 조위관측',    region: '서해', lat: 37.4539, lng: 126.6163 },
-  { key: 'SeaFog_Incheon',name: '인천항 해무관측',    region: '서해', lat: 37.4549, lng: 126.6050 },
-  { key: 'SeaFog_Daesan', name: '대산항 해무관측',    region: '서해', lat: 37.0196, lng: 126.3567 },
-  { key: 'SeaFog_PTDJ',   name: '평택당진항 해무관측', region: '서해', lat: 36.9927, lng: 126.8219 },
-  { key: 'Jindo',         name: '진도항 조위관측',    region: '남해', lat: 34.4048, lng: 126.2574 },
-  { key: 'SeaFog_Mokpo',  name: '목포항 해무관측',    region: '남해', lat: 34.7799, lng: 126.3769 },
-  { key: 'Yeosu',         name: '여수항 조위관측',    region: '남해', lat: 34.7604, lng: 127.6622 },
-  { key: 'SeaFog_Yeosu',  name: '여수항 해무관측',    region: '남해', lat: 34.7500, lng: 127.6700 },
-  { key: 'Busan',         name: '부산항 조위관측',    region: '동해', lat: 35.1028, lng: 129.0403 },
-  { key: 'SeaFog_Busan',  name: '부산항 해무관측',    region: '동해', lat: 35.0940, lng: 129.0500 },
-  { key: 'SeaFog_Ulsan',  name: '울산항 해무관측',    region: '동해', lat: 35.5013, lng: 129.3867 },
-  { key: 'SeaFog_Pohang', name: '포항항 해무관측',    region: '동해', lat: 36.0183, lng: 129.3658 },
-  { key: 'Mukho',         name: '묵호항 조위관측',    region: '동해', lat: 37.5505, lng: 129.1220 },
-  { key: 'Moseulpo',      name: '모슬포항 조위관측',  region: '제주', lat: 33.2150, lng: 126.2516 },
+  { key: 'Incheon',        name: '인천항 조위관측',     region: '서해', lat: 37.4539, lng: 126.6163 },
+  { key: 'SeaFog_Incheon', name: '인천항 해무관측',     region: '서해', lat: 37.4549, lng: 126.6050 },
+  { key: 'SeaFog_Daesan',  name: '대산항 해무관측',     region: '서해', lat: 37.0196, lng: 126.3567 },
+  { key: 'SeaFog_PTDJ',    name: '평택당진항 해무관측', region: '서해', lat: 36.9927, lng: 126.8219 },
+  { key: 'Gunsan',         name: '군산항 조위관측',     region: '서해', lat: 35.9756, lng: 126.7106 },
+  { key: 'SeaFog_Gunsan',  name: '군산항 해무관측',     region: '서해', lat: 35.9760, lng: 126.7100 },
+  { key: 'Jindo',          name: '진도항 조위관측',     region: '남해', lat: 34.4048, lng: 126.2574 },
+  { key: 'SeaFog_Mokpo',   name: '목포항 해무관측',     region: '남해', lat: 34.7799, lng: 126.3769 },
+  { key: 'Yeosu',          name: '여수항 조위관측',     region: '남해', lat: 34.7604, lng: 127.6622 },
+  { key: 'SeaFog_Yeosu',   name: '여수항 해무관측',     region: '남해', lat: 34.7500, lng: 127.6700 },
+  { key: 'Busan',          name: '부산항 조위관측',     region: '동해', lat: 35.1028, lng: 129.0403 },
+  { key: 'SeaFog_Busan',   name: '부산항 해무관측',     region: '동해', lat: 35.0940, lng: 129.0500 },
+  { key: 'SeaFog_Ulsan',   name: '울산항 해무관측',     region: '동해', lat: 35.5013, lng: 129.3867 },
+  { key: 'SeaFog_Pohang',  name: '포항항 해무관측',     region: '동해', lat: 36.0183, lng: 129.3658 },
+  { key: 'Mukho',          name: '묵호항 조위관측',     region: '동해', lat: 37.5505, lng: 129.1220 },
+  { key: 'Moseulpo',       name: '모슬포항 조위관측',   region: '제주', lat: 33.2150, lng: 126.2516 },
 ].map(cam => ({ ...cam, src: khoa(cam.key) }))
 
 const REGION_COLORS = { 서해: '#0096C7', 남해: '#0077B6', 동해: '#023E8A', 제주: '#48CAE4' }
