@@ -22,12 +22,14 @@ import CommentIcon from '@mui/icons-material/Comment'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import AppLayout from '../components/layout/AppLayout'
 import ChatSection from '../components/chat/ChatSection'
+import AdminBadge from '../components/AdminBadge'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 function PostCard({ post, onClick }) {
   const preview = post.content.length > 80 ? post.content.slice(0, 80) + '...' : post.content
   const date = new Date(post.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+  const isAdmin = post.profiles?.is_admin
 
   return (
     <Card sx={{ mb: 1.5 }}>
@@ -38,8 +40,9 @@ function PostCard({ post, onClick }) {
             {post.rating && <Rating value={post.rating} size="small" readOnly />}
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{preview}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="caption" color="text.secondary">{post.profiles?.display_name || '익명'}</Typography>
+            {isAdmin && <AdminBadge />}
             <Typography variant="caption" color="text.secondary">{date}</Typography>
             <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
@@ -67,7 +70,7 @@ function PostListTab() {
   useEffect(() => {
     supabase
       .from('sh_posts')
-      .select('*, profiles(display_name, avatar_url)')
+      .select('*, profiles(display_name, avatar_url, is_admin)')
       .order('created_at', { ascending: false })
       .then(({ data }) => { setPosts(data ?? []); setLoading(false) })
   }, [])

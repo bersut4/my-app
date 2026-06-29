@@ -28,6 +28,8 @@ import RouteIcon from '@mui/icons-material/Route'
 import ScubaDivingIcon from '@mui/icons-material/ScubaDiving'
 import DeleteIcon from '@mui/icons-material/Delete'
 import LockIcon from '@mui/icons-material/Lock'
+import Avatar from '@mui/material/Avatar'
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import AppLayout from '../components/layout/AppLayout'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -207,13 +209,100 @@ function DivingLogTab({ userId }) {
   )
 }
 
+function AdminPointsTab() {
+  const [allPoints, setAllPoints] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    supabase
+      .from('sh_points')
+      .select('*, profiles(display_name, avatar_url)')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setAllPoints(data ?? []); setLoading(false) })
+  }, [])
+
+  const filtered = search.trim()
+    ? allPoints.filter(p =>
+        p.profiles?.display_name?.includes(search) ||
+        p.name?.includes(search)
+      )
+    : allPoints
+
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>
+
+  const userGroups = filtered.reduce((acc, p) => {
+    const uid = p.user_id
+    if (!acc[uid]) acc[uid] = { profile: p.profiles, points: [] }
+    acc[uid].points.push(p)
+    return acc
+  }, {})
+
+  return (
+    <Box sx={{ p: 2, pb: 10 }}>
+      <TextField
+        size="small"
+        fullWidth
+        placeholder="닉네임 또는 포인트명 검색..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+        전체 유저 {Object.keys(userGroups).length}명 · 포인트 {filtered.length}개
+      </Typography>
+
+      {Object.entries(userGroups).map(([uid, { profile, points }]) => (
+        <Card key={uid} sx={{ mb: 2 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark', fontSize: '0.8rem' }}>
+                {profile?.display_name?.[0] ?? '?'}
+              </Avatar>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{profile?.display_name ?? '탈퇴한 유저'}</Typography>
+                <Typography variant="caption" color="text.secondary">포인트 {points.length}개</Typography>
+              </Box>
+            </Box>
+            {points.map(p => {
+              const isRoute = p.location_type === 'route'
+              const coords = isRoute
+                ? `경로 ${p.location_data.length}개 지점`
+                : `${p.location_data.lat?.toFixed(4)}, ${p.location_data.lng?.toFixed(4)}`
+              const date = new Date(p.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+              return (
+                <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid rgba(0,180,216,0.3)' }}>
+                  {isRoute ? <RouteIcon sx={{ fontSize: 16, color: 'primary.light' }} /> : <RoomIcon sx={{ fontSize: 16, color: 'primary.light' }} />}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{p.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">{coords} · {date}</Typography>
+                  </Box>
+                  <Chip label={p.source === 'from_post' ? '게시글' : '직접'} size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
+                </Box>
+              )
+            })}
+          </CardContent>
+        </Card>
+      ))}
+
+      {filtered.length === 0 && (
+        <Box sx={{ textAlign: 'center', mt: 8 }}>
+          <RoomIcon sx={{ fontSize: 56, color: 'text.secondary', mb: 2 }} />
+          <Typography color="text.secondary">포인트가 없어요.</Typography>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 export default function MyPointsPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [tab, setTab] = useState(0)
   const [points, setPoints] = useState([])
   const [fromPostPoints, setFromPostPoints] = useState([])
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
+  const isAdmin = profile?.is_admin
 
   useEffect(() => {
     if (!user) return
@@ -248,17 +337,24 @@ export default function MyPointsPage() {
         <Toolbar>
           <RoomIcon sx={{ mr: 1, color: 'primary.light' }} />
           <Typography variant="h3" sx={{ flexGrow: 1 }}>내 포인트</Typography>
-          <LockIcon sx={{ fontSize: 18, color: 'text.secondary', mr: 0.5 }} />
-          <Typography variant="caption" color="text.secondary">나만 볼 수 있어요</Typography>
+          {!isAdmin && (
+            <>
+              <LockIcon sx={{ fontSize: 18, color: 'text.secondary', mr: 0.5 }} />
+              <Typography variant="caption" color="text.secondary">나만 볼 수 있어요</Typography>
+            </>
+          )}
         </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isAdmin ? 'scrollable' : 'fullWidth'} scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="내 포인트" />
           <Tab label="저장한 포인트" />
           <Tab label="다이빙 로그" icon={<ScubaDivingIcon sx={{ fontSize: 16 }} />} iconPosition="start" />
+          {isAdmin && <Tab label="전체 포인트" icon={<AdminPanelSettingsIcon sx={{ fontSize: 16 }} />} iconPosition="start" sx={{ color: '#FFB400', '&.Mui-selected': { color: '#FFB400' } }} />}
         </Tabs>
       </AppBar>
 
-      {tab < 2 ? (
+      {isAdmin && tab === 3 ? (
+        <AdminPointsTab />
+      ) : tab < 2 ? (
         <Box sx={{ p: 2, pb: 10 }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>
