@@ -29,6 +29,7 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ArticleIcon from '@mui/icons-material/Article'
 import AppLayout from '../components/layout/AppLayout'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useFontSize, FONT_SIZE_LABELS } from '../contexts/FontSizeContext'
@@ -160,7 +161,8 @@ export default function MyPage() {
       <AppBar position="sticky">
         <Toolbar>
           <PersonIcon sx={{ mr: 1, color: 'primary.light' }} />
-          <Typography variant="h3">마이페이지</Typography>
+          <Typography variant="h3" sx={{ flexGrow: 1 }}>마이페이지</Typography>
+          <ThemeToggleButton />
         </Toolbar>
       </AppBar>
 

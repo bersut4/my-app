@@ -23,6 +23,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import AppLayout from '../components/layout/AppLayout'
 import KakaoMapPicker from '../components/KakaoMapPicker'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -184,7 +185,8 @@ export default function PostWritePage() {
         <Toolbar>
           <IconButton edge="start" onClick={() => navigate('/posts')} disabled={loading}><ArrowBackIcon /></IconButton>
           <Typography variant="h3" sx={{ flex: 1, ml: 1 }}>게시글 작성</Typography>
-          <Button variant="contained" size="small" onClick={submit} disabled={loading}>
+          <ThemeToggleButton />
+          <Button variant="contained" size="small" onClick={submit} disabled={loading} sx={{ ml: 0.5 }}>
             {loading ? <CircularProgress size={18} color="inherit" /> : '등록'}
           </Button>
         </Toolbar>

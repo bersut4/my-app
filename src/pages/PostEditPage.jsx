@@ -21,6 +21,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn'
 import CloseIcon from '@mui/icons-material/Close'
 import AppLayout from '../components/layout/AppLayout'
 import KakaoMapPicker from '../components/KakaoMapPicker'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -112,7 +113,8 @@ export default function PostEditPage() {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h3" sx={{ flex: 1, ml: 1 }}>게시글 수정</Typography>
-          <Button variant="contained" size="small" onClick={submit} disabled={loading}>
+          <ThemeToggleButton />
+          <Button variant="contained" size="small" onClick={submit} disabled={loading} sx={{ ml: 0.5 }}>
             {loading ? <CircularProgress size={18} color="inherit" /> : '저장'}
           </Button>
         </Toolbar>

@@ -23,6 +23,7 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff'
 import AirIcon from '@mui/icons-material/Air'
 import ThermostatIcon from '@mui/icons-material/Thermostat'
 import AppLayout from '../components/layout/AppLayout'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 
 const BEACHES = [
   { name: '부산 해운대', region: '부산', lat: 35.1588, lng: 129.1603, streamUrl: null },
@@ -273,6 +274,7 @@ export default function WeatherPage() {
         <Toolbar>
           <WavesIcon sx={{ mr: 1, color: 'primary.light' }} />
           <Typography variant="h3" sx={{ flexGrow: 1 }}>Sea Hunt</Typography>
+          <ThemeToggleButton />
         </Toolbar>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="실시간 지도" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />

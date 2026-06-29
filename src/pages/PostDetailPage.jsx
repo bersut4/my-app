@@ -28,6 +28,7 @@ import BookmarkIcon from '@mui/icons-material/Bookmark'
 import AppLayout from '../components/layout/AppLayout'
 import AdminBadge from '../components/AdminBadge'
 import KakaoMapView from '../components/KakaoMapView'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -277,10 +278,11 @@ export default function PostDetailPage() {
           <Typography variant="h3" sx={{ flex: 1, ml: 1 }}>게시글</Typography>
           {canDelete && (
             <>
-              <IconButton onClick={() => navigate(`/posts/${id}/edit`)}><EditIcon /></IconButton>
+              <IconButton color="inherit" onClick={() => navigate(`/posts/${id}/edit`)}><EditIcon /></IconButton>
               <IconButton color="error" onClick={deletePost}><DeleteIcon /></IconButton>
             </>
           )}
+          <ThemeToggleButton />
         </Toolbar>
       </AppBar>
 

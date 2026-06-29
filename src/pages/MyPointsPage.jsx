@@ -33,6 +33,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import AppLayout from '../components/layout/AppLayout'
 import KakaoMapPicker from '../components/KakaoMapPicker'
 import KakaoMapView from '../components/KakaoMapView'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -425,10 +426,11 @@ export default function MyPointsPage() {
           <Typography variant="h3" sx={{ flexGrow: 1 }}>내 포인트</Typography>
           {!isAdmin && (
             <>
-              <LockIcon sx={{ fontSize: 18, color: 'text.secondary', mr: 0.5 }} />
-              <Typography variant="caption" color="text.secondary">나만 볼 수 있어요</Typography>
+              <LockIcon sx={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', mr: 0.5 }} />
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mr: 0.5 }}>나만 볼 수 있어요</Typography>
             </>
           )}
+          <ThemeToggleButton />
         </Toolbar>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isAdmin ? 'scrollable' : 'fullWidth'} scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="내 포인트" />

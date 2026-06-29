@@ -23,6 +23,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import AppLayout from '../components/layout/AppLayout'
 import ChatSection from '../components/chat/ChatSection'
 import AdminBadge from '../components/AdminBadge'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -114,6 +115,7 @@ export default function PostsPage() {
         <Toolbar>
           <ArticleIcon sx={{ mr: 1, color: 'primary.light' }} />
           <Typography variant="h3" sx={{ flexGrow: 1 }}>게시물</Typography>
+          <ThemeToggleButton />
         </Toolbar>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="게시판" icon={<ArticleIcon sx={{ fontSize: 18 }} />} iconPosition="start" />

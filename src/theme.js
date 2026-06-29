@@ -8,21 +8,45 @@ export const FONT_SIZE_SCALE = {
   very_large: 1.25,
 }
 
-export const createAppTheme = (fontSize = 'medium') => {
+export const createAppTheme = (fontSize = 'medium', mode = 'dark') => {
   const s = FONT_SIZE_SCALE[fontSize] ?? 1
+  const isDark = mode === 'dark'
+
+  const palette = isDark ? {
+    mode: 'dark',
+    primary: { main: '#00B4D8', light: '#48CAE4', dark: '#0077B6' },
+    secondary: { main: '#0096C7', light: '#ADE8F4', dark: '#023E8A' },
+    background: { default: '#03045E', paper: '#0A1628' },
+    text: { primary: '#E0F7FA', secondary: '#90E0EF' },
+    success: { main: '#52B788' },
+    warning: { main: '#F4A261' },
+    error: { main: '#E63946' },
+    divider: 'rgba(0,180,216,0.2)',
+  } : {
+    mode: 'light',
+    primary: { main: '#0096C7', light: '#90E0EF', dark: '#0077B6' },
+    secondary: { main: '#0077B6', light: '#ADE8F4', dark: '#023E8A' },
+    background: { default: '#EFF9FE', paper: '#FFFFFF' },
+    text: { primary: 'rgba(0,0,0,0.87)', secondary: 'rgba(0,0,0,0.6)' },
+    success: { main: '#2D9A64' },
+    warning: { main: '#E07B3B' },
+    error: { main: '#D32F2F' },
+    divider: 'rgba(0,150,199,0.2)',
+  }
+
+  const appBarBg = isDark ? '#0A1628' : '#0077B6'
+  const appBarBorder = isDark ? '1px solid rgba(0,180,216,0.2)' : '1px solid rgba(0,100,180,0.3)'
+  const cardBg = isDark ? '#0A1628' : '#FFFFFF'
+  const cardBorder = isDark ? '1px solid rgba(0,180,216,0.15)' : '1px solid rgba(0,150,199,0.2)'
+  const bottomNavBg = isDark ? '#0A1628' : '#FFFFFF'
+  const bottomNavBorder = isDark ? '1px solid rgba(0,180,216,0.2)' : '1px solid rgba(0,150,199,0.25)'
+  const tabColor = isDark ? '#90E0EF' : 'rgba(255,255,255,0.75)'
+  const tabSelectedColor = isDark ? '#00B4D8' : '#FFFFFF'
+  const bottomNavColor = isDark ? '#90E0EF' : '#0096C7'
+  const fieldBorderColor = isDark ? 'rgba(0,180,216,0.3)' : 'rgba(0,150,199,0.4)'
 
   return createTheme({
-    palette: {
-      mode: 'dark',
-      primary: { main: '#00B4D8', light: '#48CAE4', dark: '#0077B6' },
-      secondary: { main: '#0096C7', light: '#ADE8F4', dark: '#023E8A' },
-      background: { default: '#03045E', paper: '#0A1628' },
-      text: { primary: '#E0F7FA', secondary: '#90E0EF' },
-      success: { main: '#52B788' },
-      warning: { main: '#F4A261' },
-      error: { main: '#E63946' },
-      divider: 'rgba(0,180,216,0.2)',
-    },
+    palette,
     typography: {
       fontFamily: 'Roboto, Helvetica, Arial, sans-serif',
       fontSize: 16 * s,
@@ -39,8 +63,8 @@ export const createAppTheme = (fontSize = 'medium') => {
       MuiBottomNavigation: {
         styleOverrides: {
           root: {
-            backgroundColor: '#0A1628',
-            borderTop: '1px solid rgba(0,180,216,0.2)',
+            backgroundColor: bottomNavBg,
+            borderTop: bottomNavBorder,
             height: 64,
             position: 'fixed',
             bottom: 0,
@@ -53,28 +77,33 @@ export const createAppTheme = (fontSize = 'medium') => {
       MuiBottomNavigationAction: {
         styleOverrides: {
           root: {
-            color: '#90E0EF',
+            color: bottomNavColor,
             minWidth: 60,
-            '&.Mui-selected': { color: '#00B4D8' },
+            '&.Mui-selected': { color: '#0096C7' },
             '& .MuiBottomNavigationAction-label': { fontSize: `${0.7 * s}rem` },
           },
         },
       },
       MuiAppBar: {
         styleOverrides: {
-          root: { backgroundColor: '#0A1628', borderBottom: '1px solid rgba(0,180,216,0.2)', boxShadow: 'none' },
+          root: {
+            backgroundColor: appBarBg,
+            borderBottom: appBarBorder,
+            boxShadow: 'none',
+            color: '#FFFFFF',
+          },
         },
       },
       MuiCard: {
         styleOverrides: {
-          root: { backgroundColor: '#0A1628', border: '1px solid rgba(0,180,216,0.15)' },
+          root: { backgroundColor: cardBg, border: cardBorder },
         },
       },
       MuiTab: {
         styleOverrides: {
           root: {
-            color: '#90E0EF',
-            '&.Mui-selected': { color: '#00B4D8' },
+            color: tabColor,
+            '&.Mui-selected': { color: tabSelectedColor },
             fontSize: `${0.875 * s}rem`,
             minWidth: 80,
             textTransform: 'none',
@@ -91,7 +120,7 @@ export const createAppTheme = (fontSize = 'medium') => {
         styleOverrides: {
           root: {
             '& .MuiOutlinedInput-root': {
-              '& fieldset': { borderColor: 'rgba(0,180,216,0.3)' },
+              '& fieldset': { borderColor: fieldBorderColor },
               '&:hover fieldset': { borderColor: '#00B4D8' },
               '&.Mui-focused fieldset': { borderColor: '#00B4D8' },
             },

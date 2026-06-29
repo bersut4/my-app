@@ -17,6 +17,7 @@ import ArticleIcon from '@mui/icons-material/Article'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AppLayout from '../components/layout/AppLayout'
+import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -44,8 +45,9 @@ export default function MyPostsPage() {
           </IconButton>
           <Typography variant="h3" sx={{ ml: 1, flex: 1 }}>내가 쓴 글</Typography>
           {!loading && (
-            <Typography variant="caption" color="text.secondary">총 {posts.length}개</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mr: 0.5 }}>총 {posts.length}개</Typography>
           )}
+          <ThemeToggleButton />
         </Toolbar>
       </AppBar>
 
