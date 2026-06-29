@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
 
-// 읽기 전용 지도 (마커 표시)
 export default function KakaoMapView({ lat, lng }) {
   const containerRef = useRef(null)
-  const ready = useKakaoLoader()
+  const { ready, error } = useKakaoLoader()
 
   useEffect(() => {
     if (!ready || !containerRef.current) return
@@ -16,9 +16,13 @@ export default function KakaoMapView({ lat, lng }) {
     new kakao.maps.Marker({ position, map })
   }, [ready, lat, lng])
 
+  if (error) {
+    return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
+  }
+
   if (!ready) {
     return (
-      <Box sx={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
         <CircularProgress size={24} />
       </Box>
     )

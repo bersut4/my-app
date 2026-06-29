@@ -2,14 +2,14 @@ import { useEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
 
-// 지도 클릭으로 위치 선택. value: { lat, lng, name } | null, onChange: (val) => void
 export default function KakaoMapPicker({ value, onChange }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
-  const ready = useKakaoLoader()
+  const { ready, error } = useKakaoLoader()
 
   useEffect(() => {
     if (!ready || !containerRef.current) return
@@ -43,7 +43,6 @@ export default function KakaoMapPicker({ value, onChange }) {
       })
     })
 
-    // 현재 위치로 이동 (권한 있을 경우)
     if (!value && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -56,6 +55,14 @@ export default function KakaoMapPicker({ value, onChange }) {
       )
     }
   }, [ready])
+
+  if (error) {
+    return (
+      <Box sx={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    )
+  }
 
   if (!ready) {
     return (
