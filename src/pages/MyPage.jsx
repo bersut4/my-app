@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
@@ -19,6 +19,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import TextField from '@mui/material/TextField'
 import Alert from '@mui/material/Alert'
+import CircularProgress from '@mui/material/CircularProgress'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import PersonIcon from '@mui/icons-material/Person'
@@ -27,6 +28,9 @@ import TextFieldsIcon from '@mui/icons-material/TextFields'
 import LogoutIcon from '@mui/icons-material/Logout'
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import ArticleIcon from '@mui/icons-material/Article'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import StarIcon from '@mui/icons-material/Star'
 import AppLayout from '../components/layout/AppLayout'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -123,6 +127,76 @@ function ChangePasswordDialog({ open, onClose }) {
   )
 }
 
+function MyPostsSection({ userId }) {
+  const navigate = useNavigate()
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.from('sh_posts')
+      .select('id, title, created_at, view_count, rating')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setPosts(data ?? []); setLoading(false) })
+  }, [userId])
+
+  return (
+    <Card>
+      <CardContent sx={{ pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ArticleIcon sx={{ color: 'primary.light', fontSize: 20 }} />
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>내가 쓴 글</Typography>
+          {!loading && (
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>총 {posts.length}개</Typography>
+          )}
+        </Box>
+      </CardContent>
+      <Divider />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : posts.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <Typography variant="body2" color="text.secondary">작성한 게시글이 없어요.</Typography>
+        </Box>
+      ) : (
+        <List disablePadding>
+          {posts.map((post, i) => (
+            <Box key={post.id}>
+              {i > 0 && <Divider />}
+              <ListItem
+                onClick={() => navigate(`/posts/${post.id}`)}
+                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(255,255,255,0.04)' }, py: 1.2 }}
+              >
+                <ListItemText
+                  primary={post.title}
+                  secondary={new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  primaryTypographyProps={{ noWrap: true, variant: 'body2', fontWeight: 500 }}
+                  secondaryTypographyProps={{ variant: 'caption' }}
+                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1, flexShrink: 0 }}>
+                  {post.rating && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                      <StarIcon sx={{ fontSize: 13, color: '#FFB400' }} />
+                      <Typography variant="caption" color="text.secondary">{post.rating}</Typography>
+                    </Box>
+                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                    <VisibilityIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
+                    <Typography variant="caption" color="text.secondary">{post.view_count ?? 0}</Typography>
+                  </Box>
+                  <ChevronRightIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                </Box>
+              </ListItem>
+            </Box>
+          ))}
+        </List>
+      )}
+    </Card>
+  )
+}
+
 export default function MyPage() {
   const navigate = useNavigate()
   const { user, profile, signOut, refreshProfile } = useAuth()
@@ -176,6 +250,9 @@ export default function MyPage() {
             </Box>
           </CardContent>
         </Card>
+
+        {/* 내가 쓴 글 */}
+        <MyPostsSection userId={user.id} />
 
         {/* 설정 목록 */}
         <Card>
