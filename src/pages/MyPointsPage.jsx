@@ -35,6 +35,26 @@ import KakaoMapPicker from '../components/KakaoMapPicker'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+const formatKoreanTime = (timeStr) => {
+  if (!timeStr) return ''
+  const [h, m] = timeStr.split(':').map(Number)
+  const ampm = h < 12 ? '오전' : '오후'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${ampm} ${h12}:${String(m).padStart(2, '0')}`
+}
+
+const calcDuration = (start, end) => {
+  if (!start || !end) return null
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  let totalMins = (eh * 60 + em) - (sh * 60 + sm)
+  if (totalMins <= 0) return null
+  const h = Math.floor(totalMins / 60)
+  const m = totalMins % 60
+  const display = h > 0 ? `${h}시간 ${m > 0 ? `${m}분` : ''}`.trim() : `${m}분`
+  return { totalMins, display }
+}
+
 function PointCard({ point, onDelete }) {
   const date = new Date(point.created_at).toLocaleDateString('ko-KR')
   const isRoute = point.location_type === 'route'
@@ -42,6 +62,7 @@ function PointCard({ point, onDelete }) {
     ? `경로 ${point.location_data.length}개 지점`
     : point.location_data.address || `위도 ${point.location_data.lat?.toFixed(4)}, 경도 ${point.location_data.lng?.toFixed(4)}`
   const log = point.sh_diving_logs?.[0]
+  const duration = log ? calcDuration(log.dive_start_time, log.dive_end_time) : null
 
   return (
     <Card sx={{ mb: 1.5 }}>
@@ -62,19 +83,23 @@ function PointCard({ point, onDelete }) {
               <ScubaDivingIcon sx={{ fontSize: 15, color: 'primary.light' }} />
               <Typography variant="caption" color="primary.light" sx={{ fontWeight: 600 }}>{log.dive_date} 다이빙 로그</Typography>
             </Box>
+
+            {log.dive_start_time && log.dive_end_time && (
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                ⏱ {formatKoreanTime(log.dive_start_time)} ~ {formatKoreanTime(log.dive_end_time)}
+                {duration && <Typography component="span" variant="caption" color="primary.light" sx={{ ml: 0.8 }}>({duration.display})</Typography>}
+              </Typography>
+            )}
+
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {log.max_depth && <Chip label={`수심 ${log.max_depth}m`} size="small" variant="outlined" />}
-              {log.dive_time && <Chip label={`${log.dive_time}분`} size="small" variant="outlined" />}
+              {!log.dive_start_time && log.dive_time && <Chip label={`${log.dive_time}분`} size="small" variant="outlined" />}
               {log.water_temp && <Chip label={`수온 ${log.water_temp}°C`} size="small" variant="outlined" />}
               {log.visibility && <Chip label={`시야 ${log.visibility}m`} size="small" variant="outlined" />}
             </Box>
             {log.catch_description && <Typography variant="body2" sx={{ mt: 0.5 }}>🐟 {log.catch_description}</Typography>}
             {log.catch_image_url && (
-              <Box
-                component="img"
-                src={log.catch_image_url}
-                sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 1, mt: 0.8 }}
-              />
+              <Box component="img" src={log.catch_image_url} sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 1, mt: 0.8 }} />
             )}
             {log.notes && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.3 }}>{log.notes}</Typography>}
           </Box>
@@ -89,7 +114,8 @@ function PointCard({ point, onDelete }) {
 
 const EMPTY_FORM = {
   name: '', description: '',
-  dive_date: '', max_depth: '', dive_time: '', water_temp: '', visibility: '', catch_description: '', notes: '',
+  dive_date: '', max_depth: '', dive_start_time: '', dive_end_time: '',
+  water_temp: '', visibility: '', catch_description: '', notes: '',
 }
 
 function AddPointDialog({ open, onClose, onAdd, userId }) {
@@ -102,6 +128,7 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
   const fileInputRef = useRef(null)
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+  const duration = calcDuration(form.dive_start_time, form.dive_end_time)
 
   const handleClose = () => {
     setForm(EMPTY_FORM)
@@ -153,12 +180,15 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
         }
       }
 
+      const dur = calcDuration(form.dive_start_time, form.dive_end_time)
       const { data: log } = await supabase.from('sh_diving_logs').insert({
         user_id: userId,
         point_id: point.id,
         dive_date: form.dive_date,
         max_depth: form.max_depth ? parseFloat(form.max_depth) : null,
-        dive_time: form.dive_time ? parseInt(form.dive_time) : null,
+        dive_start_time: form.dive_start_time || null,
+        dive_end_time: form.dive_end_time || null,
+        dive_time: dur?.totalMins || null,
         water_temp: form.water_temp ? parseFloat(form.water_temp) : null,
         visibility: form.visibility ? parseInt(form.visibility) : null,
         catch_description: form.catch_description || null,
@@ -196,10 +226,36 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
         </Divider>
 
         <TextField label="날짜" type="date" value={form.dive_date} onChange={set('dive_date')} fullWidth slotProps={{ inputLabel: { shrink: true } }} />
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <TextField label="최대 수심 (m)" type="number" value={form.max_depth} onChange={set('max_depth')} fullWidth />
-          <TextField label="다이빙 시간 (분)" type="number" value={form.dive_time} onChange={set('dive_time')} fullWidth />
+
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>다이빙 시간</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              label="시작"
+              type="time"
+              value={form.dive_start_time}
+              onChange={set('dive_start_time')}
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <Typography color="text.secondary" sx={{ flexShrink: 0 }}>~</Typography>
+            <TextField
+              label="종료"
+              type="time"
+              value={form.dive_end_time}
+              onChange={set('dive_end_time')}
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Box>
+          {duration && (
+            <Typography variant="caption" color="primary.light" sx={{ mt: 0.5, display: 'block' }}>
+              ⏱ {formatKoreanTime(form.dive_start_time)} ~ {formatKoreanTime(form.dive_end_time)} · {duration.display}
+            </Typography>
+          )}
         </Box>
+
+        <TextField label="최대 수심 (m)" type="number" value={form.max_depth} onChange={set('max_depth')} fullWidth />
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField label="수온 (°C)" type="number" value={form.water_temp} onChange={set('water_temp')} fullWidth />
           <TextField label="시야 (m)" type="number" value={form.visibility} onChange={set('visibility')} fullWidth />
