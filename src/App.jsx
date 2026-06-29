@@ -24,7 +24,7 @@ function AppRoutes() {
 
   return (
     <FontSizeProvider userId={user?.id} initialFontSize={profile?.font_size ?? 'medium'}>
-      <BrowserRouter basename="/vibecoding/my-app">
+      <BrowserRouter basename="/my-app">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
