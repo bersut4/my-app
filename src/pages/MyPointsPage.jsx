@@ -157,7 +157,7 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
           <Typography variant="caption" color="text.secondary">다이빙 로그 (선택)</Typography>
         </Divider>
 
-        <TextField label="날짜" type="date" value={form.dive_date} onChange={set('dive_date')} fullWidth InputLabelProps={{ shrink: true }} />
+        <TextField label="날짜" type="date" value={form.dive_date} onChange={set('dive_date')} fullWidth slotProps={{ inputLabel: { shrink: true } }} />
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField label="최대 수심 (m)" type="number" value={form.max_depth} onChange={set('max_depth')} fullWidth />
           <TextField label="다이빙 시간 (분)" type="number" value={form.dive_time} onChange={set('dive_time')} fullWidth />
