@@ -9,9 +9,13 @@ import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
+import Button from '@mui/material/Button'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Chip from '@mui/material/Chip'
+import IconButton from '@mui/material/IconButton'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CircularProgress from '@mui/material/CircularProgress'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -163,9 +167,15 @@ function getMulddaeNum(date = new Date()) {
   const dayInCycle = elapsed / 86400000
   const half = LUNAR_MONTH / 2
   const inHalf = dayInCycle < half ? dayInCycle : dayInCycle - half
-  // 사리는 삭/망 후 약 1.5일 뒤 → 해당 시점을 1물로 시작
   const adjusted = (inHalf - 1.5 + half) % half
   return Math.min(15, Math.max(1, Math.floor((adjusted / half) * 14) + 1))
+}
+
+function getLunarDay(date = new Date()) {
+  const refMs = new Date('2000-01-06T18:14:00Z').getTime()
+  const lunarMs = LUNAR_MONTH * 86400000
+  const elapsed = ((date.getTime() - refMs) % lunarMs + lunarMs) % lunarMs
+  return Math.floor(elapsed / 86400000) + 1
 }
 
 const MULDDAE_INFO = {
@@ -206,88 +216,154 @@ const BADATIME_LOCATIONS = [
   { name: '제주',   url: 'https://www.badatime.com/18.html' },
 ]
 
-function MulddaeTab() {
-  const num = useMemo(() => getMulddaeNum(), [])
-  const info = MULDDAE_INFO[num]
-  const [locIdx, setLocIdx] = useState(4) // 부산 기본
-  const today = new Date()
-  const dateStr = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+const LEVEL_LABELS = [
+  { pos: 0,   label: '사리' },
+  { pos: 7,   label: '조금' },
+  { pos: 14,  label: '사리' },
+]
 
+function MulddaeTab() {
+  const baseDate = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+  const [offset, setOffset] = useState(0)
+  const [locIdx, setLocIdx] = useState(4)
+
+  const displayDate = useMemo(() => {
+    const d = new Date(baseDate)
+    d.setDate(d.getDate() + offset)
+    return d
+  }, [baseDate, offset])
+
+  const num      = useMemo(() => getMulddaeNum(displayDate), [displayDate])
+  const lunarDay = useMemo(() => getLunarDay(displayDate),   [displayDate])
+  const info     = MULDDAE_INFO[num]
+
+  const dateStr = displayDate.toLocaleDateString('ko-KR', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+  })
   const msg = info.level >= 4 ? TIDE_MSGS.strong : info.level <= 2 ? TIDE_MSGS.weak : TIDE_MSGS.mid
 
   return (
     <Box sx={{ pb: 10 }}>
-      <Box sx={{ px: 2, pt: 2, pb: 1 }}>
-        <Card>
-          <CardContent sx={{ pb: '12px !important' }}>
-            <Typography variant="caption" color="text.secondary">{dateStr} 오늘의 물때</Typography>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-              {/* 물때 숫자 */}
-              <Box sx={{ textAlign: 'center', minWidth: 80 }}>
-                <Typography sx={{ fontSize: '2.8rem', fontWeight: 800, color: info.color, lineHeight: 1 }}>
-                  {num}물
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.3 }}>{info.name}</Typography>
-              </Box>
+      {/* ── 헤더: 날짜 + 물때 ── */}
+      <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
 
-              {/* 15단계 막대 그래프 */}
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: 48 }}>
-                  {Array.from({ length: 15 }, (_, i) => {
-                    const n = i + 1
-                    const m = MULDDAE_INFO[n]
-                    const isActive = n === num
-                    return (
-                      <Box
-                        key={n}
-                        sx={{
-                          flex: 1,
-                          height: BAR_HEIGHTS[m.level],
-                          bgcolor: isActive ? m.color : m.color,
-                          opacity: isActive ? 1 : 0.35,
-                          borderRadius: '2px 2px 0 0',
-                          border: isActive ? '1.5px solid #fff' : 'none',
-                          transition: 'opacity 0.2s',
-                        }}
-                      />
-                    )
-                  })}
+        {/* 날짜 행 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 1.5, pb: 0.5 }}>
+          <Box>
+            <Typography sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.3 }}>{dateStr}</Typography>
+            <Typography variant="caption" color="text.secondary">음력 {lunarDay}일</Typography>
+          </Box>
+
+          {/* 물때 뱃지 */}
+          <Box sx={{
+            textAlign: 'center',
+            bgcolor: `${info.color}22`,
+            border: `2px solid ${info.color}`,
+            borderRadius: 2,
+            px: 2, py: 0.5,
+            minWidth: 72,
+          }}>
+            <Typography sx={{ fontWeight: 900, fontSize: '1.6rem', color: info.color, lineHeight: 1 }}>
+              {num}물
+            </Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: info.color, fontWeight: 600 }}>{info.name}</Typography>
+          </Box>
+        </Box>
+
+        {/* 15단계 막대 */}
+        <Box sx={{ px: 2, pb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2.5px', height: 40 }}>
+            {Array.from({ length: 15 }, (_, i) => {
+              const n = i + 1
+              const m = MULDDAE_INFO[n]
+              const isActive = n === num
+              return (
+                <Box key={n} sx={{ flex: 1, position: 'relative' }}>
+                  <Box sx={{
+                    height: BAR_HEIGHTS[m.level],
+                    bgcolor: m.color,
+                    opacity: isActive ? 1 : 0.28,
+                    borderRadius: '3px 3px 0 0',
+                    boxShadow: isActive ? `0 0 8px ${m.color}` : 'none',
+                    transition: 'opacity 0.2s',
+                  }} />
+                  {isActive && (
+                    <Box sx={{
+                      position: 'absolute', bottom: -4, left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 6, height: 6, borderRadius: '50%',
+                      bgcolor: '#fff',
+                    }} />
+                  )}
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.4 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>사리</Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>조금</Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>사리</Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            <Box sx={{ mt: 1.5, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary">{msg}</Typography>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-
-      {/* 지역별 조석 예보 */}
-      <Box sx={{ px: 2, pb: 1 }}>
-        <FormControl fullWidth size="small">
-          <InputLabel>지역 선택</InputLabel>
-          <Select value={locIdx} label="지역 선택" onChange={e => setLocIdx(e.target.value)}>
-            {BADATIME_LOCATIONS.map((loc, i) => (
-              <MenuItem key={loc.name} value={i}>{loc.name}</MenuItem>
+              )
+            })}
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
+            {LEVEL_LABELS.map(({ pos, label }) => (
+              <Typography key={label} sx={{ fontSize: '0.6rem', color: 'text.disabled' }}>{label}</Typography>
             ))}
-          </Select>
-        </FormControl>
+          </Box>
+        </Box>
+
+        {/* 안전 메시지 */}
+        <Box sx={{ mx: 2, mb: 1.5, px: 1.5, py: 0.8, bgcolor: 'background.default', borderRadius: 1 }}>
+          <Typography variant="caption" color="text.secondary">{msg}</Typography>
+        </Box>
+
+        {/* 날짜 이동 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', px: 1, py: 0.3 }}>
+          <IconButton size="small" onClick={() => setOffset(o => o - 1)}>
+            <ChevronLeftIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {offset !== 0 && (
+              <Button size="small" variant="text" onClick={() => setOffset(0)} sx={{ fontSize: '0.72rem', py: 0.2, minWidth: 0, color: 'primary.light' }}>
+                오늘로
+              </Button>
+            )}
+            <Typography variant="body2" sx={{ fontWeight: 600, color: offset === 0 ? 'primary.light' : 'text.primary' }}>
+              {offset === 0 ? '오늘' : offset === -1 ? '전날' : offset === 1 ? '다음날' : `${offset > 0 ? '+' : ''}${offset}일`}
+            </Typography>
+          </Box>
+
+          <IconButton size="small" onClick={() => setOffset(o => o + 1)}>
+            <ChevronRightIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+        </Box>
       </Box>
-      <Typography variant="caption" color="text.secondary" sx={{ px: 2, display: 'block', mb: 0.5 }}>
-        상세 조석 예보 (출처: 바다타임)
+
+      {/* ── 지역 선택 chips ── */}
+      <Box sx={{ px: 2, pt: 1.2, pb: 0.8 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.8 }}>
+          지역 선택
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+          {BADATIME_LOCATIONS.map((loc, i) => (
+            <Chip
+              key={loc.name}
+              label={loc.name}
+              size="small"
+              onClick={() => setLocIdx(i)}
+              variant={locIdx === i ? 'filled' : 'outlined'}
+              color={locIdx === i ? 'primary' : 'default'}
+              sx={{ fontSize: '0.73rem', cursor: 'pointer' }}
+            />
+          ))}
+        </Box>
+      </Box>
+
+      {/* ── 바다타임 iframe ── */}
+      <Typography variant="caption" color="text.disabled" sx={{ px: 2, display: 'block', mb: 0.5 }}>
+        상세 조석 예보 — 출처: 바다타임
       </Typography>
       <Box
         key={BADATIME_LOCATIONS[locIdx].url}
         component="iframe"
         src={BADATIME_LOCATIONS[locIdx].url}
-        sx={{ width: '100%', height: 'calc(100vh - 380px)', border: 'none', display: 'block' }}
+        sx={{ width: '100%', height: 'calc(100vh - 440px)', minHeight: 320, border: 'none', display: 'block' }}
         title="바다타임 물때표"
       />
     </Box>
