@@ -28,6 +28,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ArticleIcon from '@mui/icons-material/Article'
+import BlockIcon from '@mui/icons-material/Block'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
@@ -186,6 +187,12 @@ export default function MyPage() {
             <ListItem button onClick={() => navigate('/my-posts')}>
               <ListItemIcon><ArticleIcon sx={{ color: 'primary.light' }} /></ListItemIcon>
               <ListItemText primary="내가 쓴 글" />
+              <ChevronRightIcon color="action" />
+            </ListItem>
+            <Divider />
+            <ListItem button onClick={() => navigate('/blocked-users')}>
+              <ListItemIcon><BlockIcon sx={{ color: 'primary.light' }} /></ListItemIcon>
+              <ListItemText primary="차단 목록" />
               <ChevronRightIcon color="action" />
             </ListItem>
             <Divider />

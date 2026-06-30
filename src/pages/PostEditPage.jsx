@@ -46,7 +46,7 @@ export default function PostEditPage() {
       .then(({ data, error }) => {
         if (error || !data) { setNotAllowed(true); setFetching(false); return }
 
-        if (!user || (data.user_id !== user.id && !profile?.is_admin)) {
+        if (!user || data.user_id !== user.id) {
           setNotAllowed(true); setFetching(false); return
         }
 

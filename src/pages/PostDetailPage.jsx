@@ -15,6 +15,14 @@ import Rating from '@mui/material/Rating'
 import Avatar from '@mui/material/Avatar'
 import Alert from '@mui/material/Alert'
 import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ThumbUpIcon from '@mui/icons-material/ThumbUp'
 import ThumbDownIcon from '@mui/icons-material/ThumbDown'
@@ -25,12 +33,25 @@ import CloseIcon from '@mui/icons-material/Close'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder'
 import BookmarkIcon from '@mui/icons-material/Bookmark'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import FlagIcon from '@mui/icons-material/Flag'
+import BlockIcon from '@mui/icons-material/Block'
+import CheckIcon from '@mui/icons-material/Check'
 import AppLayout from '../components/layout/AppLayout'
 import AdminBadge from '../components/AdminBadge'
 import KakaoMapView from '../components/KakaoMapView'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+
+const REPORT_REASONS = [
+  { value: 'spam', label: '도배' },
+  { value: 'profanity', label: '욕설' },
+  { value: 'obscene', label: '외설' },
+  { value: 'harassment', label: '괴롭힘' },
+  { value: 'impersonation', label: '사칭' },
+  { value: 'other', label: '기타' },
+]
 
 function MediaGallery({ postId }) {
   const [media, setMedia] = useState([])
@@ -204,6 +225,13 @@ export default function PostDetailPage() {
   const [savedPointId, setSavedPointId] = useState(null)
   const [savingPoint, setSavingPoint] = useState(false)
 
+  const [menuAnchor, setMenuAnchor] = useState(null)
+  const [blockedByMe, setBlockedByMe] = useState(false)
+  const [blockRecordId, setBlockRecordId] = useState(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportDone, setReportDone] = useState(false)
+
   useEffect(() => {
     Promise.all([
       supabase.from('sh_posts').select('*, profiles(display_name, avatar_url, is_admin)').eq('id', id).single(),
@@ -215,6 +243,18 @@ export default function PostDetailPage() {
       if (p) supabase.from('sh_posts').update({ view_count: (p.view_count ?? 0) + 1 }).eq('id', id)
     })
   }, [id])
+
+  useEffect(() => {
+    if (!user || !post) return
+    supabase.from('sh_chat_blocks')
+      .select('id')
+      .eq('blocker_id', user.id)
+      .eq('blocked_id', post.user_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) { setBlockedByMe(true); setBlockRecordId(data.id) }
+      })
+  }, [user, post])
 
   useEffect(() => {
     if (!user || !post?.location_lat) return
@@ -263,10 +303,37 @@ export default function PostDetailPage() {
     navigate('/posts')
   }
 
+  const handleBlock = async () => {
+    setMenuAnchor(null)
+    if (!post || blockedByMe) return
+    if (!window.confirm(`${post.profiles?.display_name || '이 사용자'}를 차단할까요?`)) return
+    const { data } = await supabase.from('sh_chat_blocks')
+      .upsert({ blocker_id: user.id, blocked_id: post.user_id })
+      .select('id').single()
+    setBlockedByMe(true)
+    if (data) setBlockRecordId(data.id)
+  }
+
+  const handleUnblock = async () => {
+    if (!blockRecordId) return
+    await supabase.from('sh_chat_blocks').delete().eq('id', blockRecordId)
+    setBlockedByMe(false)
+    setBlockRecordId(null)
+  }
+
+  const submitReport = async () => {
+    if (!reportReason || !post || !user) return
+    await supabase.from('sh_post_reports').upsert({ reporter_id: user.id, post_id: post.id, reason: reportReason })
+    setReportDone(true)
+    setTimeout(() => { setReportDone(false); setReportOpen(false); setReportReason('') }, 1500)
+  }
+
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
   if (!post) return <Alert severity="error" sx={{ m: 2 }}>게시글을 찾을 수 없어요.</Alert>
 
-  const canDelete = user && (user.id === post.user_id || profile?.is_admin)
+  const isMe = user?.id === post.user_id
+  const canEdit = user && isMe
+  const canDelete = user && (isMe || profile?.is_admin)
   const isPostAdmin = post.profiles?.is_admin
   const date = new Date(post.created_at).toLocaleString('ko-KR')
 
@@ -276,10 +343,21 @@ export default function PostDetailPage() {
         <Toolbar>
           <IconButton edge="start" onClick={() => navigate('/posts')}><ArrowBackIcon /></IconButton>
           <Typography variant="h3" sx={{ flex: 1, ml: 1 }}>게시글</Typography>
-          {canDelete && (
+          {canEdit && <IconButton color="inherit" onClick={() => navigate(`/posts/${id}/edit`)}><EditIcon /></IconButton>}
+          {canDelete && <IconButton color="error" onClick={deletePost}><DeleteIcon /></IconButton>}
+          {user && !isMe && (
             <>
-              <IconButton color="inherit" onClick={() => navigate(`/posts/${id}/edit`)}><EditIcon /></IconButton>
-              <IconButton color="error" onClick={deletePost}><DeleteIcon /></IconButton>
+              <IconButton color="inherit" onClick={e => setMenuAnchor(e.currentTarget)}>
+                <MoreVertIcon />
+              </IconButton>
+              <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+                <MenuItem onClick={() => { setMenuAnchor(null); setReportOpen(true) }}>
+                  <FlagIcon sx={{ mr: 1, fontSize: 18 }} />신고
+                </MenuItem>
+                <MenuItem onClick={handleBlock} disabled={blockedByMe}>
+                  <BlockIcon sx={{ mr: 1, fontSize: 18 }} />{blockedByMe ? '차단됨' : '차단'}
+                </MenuItem>
+              </Menu>
             </>
           )}
           <ThemeToggleButton />
@@ -287,6 +365,16 @@ export default function PostDetailPage() {
       </AppBar>
 
       <Box sx={{ p: 2, pb: 10 }}>
+        {blockedByMe && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={<Button color="inherit" size="small" onClick={handleUnblock}>차단 해제</Button>}
+          >
+            이 게시글 작성자를 차단했어요.
+          </Alert>
+        )}
+
         <Card sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="h2" sx={{ mb: 1 }}>{post.title}</Typography>
@@ -348,6 +436,28 @@ export default function PostDetailPage() {
           <Alert severity="info" sx={{ mt: 2 }}>댓글을 작성하려면 로그인이 필요해요.</Alert>
         )}
       </Box>
+
+      <Dialog open={reportOpen} onClose={() => { setReportOpen(false); setReportReason('') }} fullWidth>
+        <DialogTitle>게시글 신고</DialogTitle>
+        <DialogContent sx={{ pt: 0 }}>
+          {reportDone ? (
+            <Alert severity="success" sx={{ mt: 1 }}>신고가 접수됐어요.</Alert>
+          ) : (
+            <List>
+              {REPORT_REASONS.map(r => (
+                <ListItem key={r.value} button onClick={() => setReportReason(r.value)} selected={reportReason === r.value}>
+                  <ListItemText primary={r.label} />
+                  {reportReason === r.value && <CheckIcon color="primary" sx={{ fontSize: 18 }} />}
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setReportOpen(false); setReportReason('') }}>취소</Button>
+          <Button variant="contained" color="error" onClick={submitReport} disabled={!reportReason || reportDone}>신고</Button>
+        </DialogActions>
+      </Dialog>
     </AppLayout>
   )
 }

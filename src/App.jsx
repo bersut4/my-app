@@ -11,6 +11,7 @@ import PostEditPage from './pages/PostEditPage'
 import MyPointsPage from './pages/MyPointsPage'
 import MyPage from './pages/MyPage'
 import MyPostsPage from './pages/MyPostsPage'
+import BlockedUsersPage from './pages/BlockedUsersPage'
 import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
 
@@ -37,6 +38,7 @@ function AppRoutes() {
           <Route path="/mypoints" element={<MyPointsPage />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/my-posts" element={<MyPostsPage />} />
+          <Route path="/blocked-users" element={<BlockedUsersPage />} />
           <Route path="/" element={<Navigate to="/weather" replace />} />
           <Route path="*" element={<Navigate to="/weather" replace />} />
         </Routes>
