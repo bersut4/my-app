@@ -204,38 +204,212 @@ const TIDE_MSGS = {
   mid:    '💧 조수가 변화하는 시기입니다.',
 }
 
-const BADATIME_LOCATIONS = [
-  { name: '인천',   url: 'https://www.badatime.com/36.html' },
-  { name: '군산',   url: 'https://www.badatime.com/25.html' },
-  { name: '목포',   url: 'https://www.badatime.com/21.html' },
-  { name: '여수',   url: 'https://www.badatime.com/16.html' },
-  { name: '부산',   url: 'https://www.badatime.com/1.html' },
-  { name: '울산',   url: 'https://www.badatime.com/2.html' },
-  { name: '포항',   url: 'https://www.badatime.com/3.html' },
-  { name: '속초',   url: 'https://www.badatime.com/10.html' },
-  { name: '제주',   url: 'https://www.badatime.com/18.html' },
+// ── 지역별 조석 상수 (음력 기반 근사치) ──────────────────────
+// lunitidalHour: 삭(새달) 직후 1물 때 해당 지역 첫 만조 시각(h)
+// maxRange: 사리 최대 조차(cm), meanLevel: 기준 평균 해수면(cm)
+const TIDE_LOCATIONS = [
+  { name: '인천', lunitidalHour: 1.5,  maxRange: 860, meanLevel: 440 },
+  { name: '군산', lunitidalHour: 2.5,  maxRange: 640, meanLevel: 330 },
+  { name: '목포', lunitidalHour: 3.5,  maxRange: 380, meanLevel: 200 },
+  { name: '여수', lunitidalHour: 6.0,  maxRange: 170, meanLevel: 90  },
+  { name: '부산', lunitidalHour: 0.5,  maxRange: 115, meanLevel: 65  },
+  { name: '울산', lunitidalHour: 1.0,  maxRange: 90,  meanLevel: 50  },
+  { name: '포항', lunitidalHour: 1.5,  maxRange: 50,  meanLevel: 30  },
+  { name: '속초', lunitidalHour: 2.0,  maxRange: 40,  meanLevel: 25  },
+  { name: '제주', lunitidalHour: 5.0,  maxRange: 150, meanLevel: 80  },
 ]
 
 const LEVEL_LABELS = [
-  { pos: 0,   label: '사리' },
-  { pos: 7,   label: '조금' },
-  { pos: 14,  label: '사리' },
+  { label: '사리' },
+  { label: '조금' },
+  { label: '사리' },
 ]
 
+// 일출·일몰 근사 계산 (한국 기준 37°N, 127°E)
+function getSunTimes(date) {
+  const doy = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000)
+  const decl = 23.45 * Math.sin((2 * Math.PI * (284 + doy)) / 365) * (Math.PI / 180)
+  const lat = 37 * Math.PI / 180
+  const cosHa = -Math.tan(lat) * Math.tan(decl)
+  if (cosHa < -1 || cosHa > 1) return null
+  const haHours = (Math.acos(cosHa) * 12) / Math.PI
+  const solarNoon = 12 + (9 * 15 - 127) / 15  // ≈ 12.53 KST
+  return { sunrise: solarNoon - haHours, sunset: solarNoon + haHours }
+}
+
+// 조석 이벤트 계산 (M2 조화상수 기반 근사)
+function calcTideEvents(date, loc) {
+  const mulNum = getMulddaeNum(date)
+  const lunarDay = getLunarDay(date)
+  const level = MULDDAE_INFO[mulNum].level
+  const ampFactor = { 5: 0.95, 4: 0.78, 3: 0.58, 2: 0.38, 1: 0.20 }[level]
+
+  const amplitude = (loc.maxRange / 2) * ampFactor
+  const mean = loc.meanLevel
+  const T = 12.417  // M2 반주기(h)
+  const firstHigh = ((loc.lunitidalHour + (lunarDay - 1) * 0.841) % 24 + 24) % 24
+
+  const raw = []
+  for (let n = -1; n <= 2; n++) {
+    const hh = firstHigh + n * T
+    const hl = firstHigh + T / 2 + n * T
+    if (hh >= 0 && hh < 24) raw.push({ hour: hh, type: 'high', height: Math.round(mean + amplitude) })
+    if (hl >= 0 && hl < 24) raw.push({ hour: hl, type: 'low',  height: Math.round(mean - amplitude) })
+  }
+  raw.sort((a, b) => a.hour - b.hour)
+
+  raw.forEach((ev, i) => {
+    const h = Math.floor(ev.hour)
+    const m = Math.round((ev.hour - h) * 60)
+    ev.timeStr = `${String(h).padStart(2, '0')}:${String(m >= 60 ? 59 : m).padStart(2, '0')}`
+    const prev = i > 0 ? raw[i - 1].height
+      : (ev.type === 'high' ? Math.round(mean - amplitude) : Math.round(mean + amplitude))
+    ev.change = ev.height - prev
+  })
+  return raw
+}
+
+const fmtSun = (h) => {
+  const hh = Math.floor(h)
+  const mm = Math.round((h - hh) * 60)
+  return `${String(hh).padStart(2, '0')}:${String(mm >= 60 ? 59 : mm).padStart(2, '0')}`
+}
+
+// ── 수직 조석 타임라인 ──────────────────────────────────────
+function TideTimeline({ events, sunTimes, isToday }) {
+  const now = new Date()
+  const nowH = now.getHours() + now.getMinutes() / 60
+  const CHART_H = 520
+  const hp = (h) => (h / 24) * CHART_H
+
+  return (
+    <Box sx={{ position: 'relative', height: CHART_H, mx: 2, my: 1 }}>
+
+      {/* 배경 격자선 */}
+      {[0, 6, 12, 18, 24].map(h => (
+        <Box key={h} sx={{
+          position: 'absolute', top: hp(h),
+          left: 0, right: 0, height: 1,
+          bgcolor: 'rgba(255,255,255,0.07)',
+          zIndex: 0,
+        }} />
+      ))}
+
+      {/* 중앙 세로축 */}
+      <Box sx={{
+        position: 'absolute', top: 0, bottom: 0,
+        left: '58%', width: 2,
+        bgcolor: 'rgba(255,255,255,0.18)',
+        zIndex: 1,
+      }} />
+
+      {/* 시각 라벨 */}
+      {[0, 6, 12, 18, 24].map(h => (
+        <Typography key={h} sx={{
+          position: 'absolute',
+          top: hp(h) - 9,
+          left: 'calc(58% + 8px)',
+          fontSize: '0.68rem',
+          color: 'text.disabled',
+          fontWeight: 700,
+          zIndex: 2,
+        }}>{h}</Typography>
+      ))}
+
+      {/* 일출·일몰 */}
+      {sunTimes && [
+        { hour: sunTimes.sunrise, label: `일출 ${fmtSun(sunTimes.sunrise)}` },
+        { hour: sunTimes.sunset,  label: `일몰 ${fmtSun(sunTimes.sunset)}`  },
+      ].map(({ hour, label }) => (
+        <Box key={label} sx={{ position: 'absolute', top: hp(hour), left: '58%', right: 0, zIndex: 2 }}>
+          <Box sx={{ position: 'absolute', left: 0, right: 0, height: 1, bgcolor: 'rgba(245,158,11,0.35)' }} />
+          <Typography sx={{
+            position: 'absolute', left: 6,
+            top: label.startsWith('일출') ? -14 : 2,
+            fontSize: '0.6rem', color: '#F59E0B', fontWeight: 600,
+          }}>{label}</Typography>
+        </Box>
+      ))}
+
+      {/* 조석 이벤트 박스 */}
+      {events.map((ev, i) => {
+        const isHigh = ev.type === 'high'
+        const top = hp(ev.hour)
+        return (
+          <Box key={i} sx={{ position: 'absolute', top, left: 0, right: '42%', zIndex: 3 }}>
+            {/* 연결선 (박스 → 축) */}
+            <Box sx={{
+              position: 'absolute',
+              top: 0, right: 0, width: '15%', height: 1,
+              bgcolor: isHigh ? 'rgba(248,113,113,0.5)' : 'rgba(96,165,250,0.5)',
+            }} />
+            {/* 축 위 점 */}
+            <Box sx={{
+              position: 'absolute',
+              top: -4, right: '-4px',
+              width: 8, height: 8, borderRadius: '50%',
+              bgcolor: isHigh ? '#F87171' : '#60A5FA',
+              zIndex: 4,
+            }} />
+            {/* 이벤트 박스 */}
+            <Box sx={{
+              position: 'absolute',
+              top: -24,
+              left: 0, right: '18%',
+              bgcolor: isHigh ? 'rgba(127,29,29,0.9)' : 'rgba(30,58,138,0.9)',
+              borderLeft: `3px solid ${isHigh ? '#F87171' : '#60A5FA'}`,
+              borderRadius: '0 6px 6px 0',
+              px: 1.2, py: 0.5,
+            }}>
+              <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.8rem', lineHeight: 1.3 }}>
+                {isHigh ? '만조' : '간조'} {ev.timeStr}
+              </Typography>
+              <Typography sx={{
+                color: isHigh ? '#FCA5A5' : '#93C5FD',
+                fontSize: '0.68rem', lineHeight: 1.2,
+              }}>
+                ({ev.height}cm)&nbsp;
+                {ev.change >= 0 ? '▲' : '▼'}&nbsp;{Math.abs(ev.change)}
+              </Typography>
+            </Box>
+          </Box>
+        )
+      })}
+
+      {/* 현재 시각 표시 (오늘만) */}
+      {isToday && nowH >= 0 && nowH < 24 && (
+        <Box sx={{ position: 'absolute', top: hp(nowH), left: 0, right: 0, zIndex: 5 }}>
+          <Box sx={{ position: 'absolute', left: '58%', right: 0, height: 2, bgcolor: '#00B4D8' }} />
+          <Box sx={{
+            position: 'absolute',
+            left: 'calc(58% + 4px)', top: -11,
+            bgcolor: '#00B4D8', borderRadius: 0.5,
+            px: 0.8, py: 0.15,
+          }}>
+            <Typography sx={{ color: '#fff', fontSize: '0.62rem', fontWeight: 700 }}>
+              {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 function MulddaeTab() {
-  const baseDate = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+  const baseDate = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const [offset, setOffset] = useState(0)
   const [locIdx, setLocIdx] = useState(4)
 
   const displayDate = useMemo(() => {
-    const d = new Date(baseDate)
-    d.setDate(d.getDate() + offset)
-    return d
+    const d = new Date(baseDate); d.setDate(d.getDate() + offset); return d
   }, [baseDate, offset])
 
-  const num      = useMemo(() => getMulddaeNum(displayDate), [displayDate])
-  const lunarDay = useMemo(() => getLunarDay(displayDate),   [displayDate])
-  const info     = MULDDAE_INFO[num]
+  const num        = useMemo(() => getMulddaeNum(displayDate), [displayDate])
+  const lunarDay   = useMemo(() => getLunarDay(displayDate),   [displayDate])
+  const info       = MULDDAE_INFO[num]
+  const tideEvents = useMemo(() => calcTideEvents(displayDate, TIDE_LOCATIONS[locIdx]), [displayDate, locIdx])
+  const sunTimes   = useMemo(() => getSunTimes(displayDate),   [displayDate])
 
   const dateStr = displayDate.toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
@@ -245,24 +419,21 @@ function MulddaeTab() {
   return (
     <Box sx={{ pb: 10 }}>
 
-      {/* ── 헤더: 날짜 + 물때 ── */}
+      {/* ── 헤더 ── */}
       <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
 
-        {/* 날짜 행 */}
+        {/* 날짜 + 물때 뱃지 */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 1.5, pb: 0.5 }}>
           <Box>
             <Typography sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.3 }}>{dateStr}</Typography>
             <Typography variant="caption" color="text.secondary">음력 {lunarDay}일</Typography>
           </Box>
-
-          {/* 물때 뱃지 */}
           <Box sx={{
             textAlign: 'center',
             bgcolor: `${info.color}22`,
             border: `2px solid ${info.color}`,
             borderRadius: 2,
-            px: 2, py: 0.5,
-            minWidth: 72,
+            px: 2, py: 0.5, minWidth: 72,
           }}>
             <Typography sx={{ fontWeight: 900, fontSize: '1.6rem', color: info.color, lineHeight: 1 }}>
               {num}물
@@ -286,14 +457,12 @@ function MulddaeTab() {
                     opacity: isActive ? 1 : 0.28,
                     borderRadius: '3px 3px 0 0',
                     boxShadow: isActive ? `0 0 8px ${m.color}` : 'none',
-                    transition: 'opacity 0.2s',
                   }} />
                   {isActive && (
                     <Box sx={{
                       position: 'absolute', bottom: -4, left: '50%',
                       transform: 'translateX(-50%)',
-                      width: 6, height: 6, borderRadius: '50%',
-                      bgcolor: '#fff',
+                      width: 6, height: 6, borderRadius: '50%', bgcolor: '#fff',
                     }} />
                   )}
                 </Box>
@@ -301,26 +470,29 @@ function MulddaeTab() {
             })}
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
-            {LEVEL_LABELS.map(({ pos, label }) => (
+            {LEVEL_LABELS.map(({ label }) => (
               <Typography key={label} sx={{ fontSize: '0.6rem', color: 'text.disabled' }}>{label}</Typography>
             ))}
           </Box>
         </Box>
 
         {/* 안전 메시지 */}
-        <Box sx={{ mx: 2, mb: 1.5, px: 1.5, py: 0.8, bgcolor: 'background.default', borderRadius: 1 }}>
+        <Box sx={{ mx: 2, mb: 1, px: 1.5, py: 0.8, bgcolor: 'background.default', borderRadius: 1 }}>
           <Typography variant="caption" color="text.secondary">{msg}</Typography>
         </Box>
 
         {/* 날짜 이동 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', px: 1, py: 0.3 }}>
+        <Box sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderTop: '1px solid rgba(255,255,255,0.06)', px: 1, py: 0.3,
+        }}>
           <IconButton size="small" onClick={() => setOffset(o => o - 1)}>
             <ChevronLeftIcon sx={{ fontSize: 20 }} />
           </IconButton>
-
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {offset !== 0 && (
-              <Button size="small" variant="text" onClick={() => setOffset(0)} sx={{ fontSize: '0.72rem', py: 0.2, minWidth: 0, color: 'primary.light' }}>
+              <Button size="small" variant="text" onClick={() => setOffset(0)}
+                sx={{ fontSize: '0.72rem', py: 0.2, minWidth: 0, color: 'primary.light' }}>
                 오늘로
               </Button>
             )}
@@ -328,20 +500,19 @@ function MulddaeTab() {
               {offset === 0 ? '오늘' : offset === -1 ? '전날' : offset === 1 ? '다음날' : `${offset > 0 ? '+' : ''}${offset}일`}
             </Typography>
           </Box>
-
           <IconButton size="small" onClick={() => setOffset(o => o + 1)}>
             <ChevronRightIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Box>
       </Box>
 
-      {/* ── 지역 선택 chips ── */}
-      <Box sx={{ px: 2, pt: 1.2, pb: 0.8 }}>
+      {/* ── 지역 선택 ── */}
+      <Box sx={{ px: 2, pt: 1.2, pb: 0.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.8 }}>
           지역 선택
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
-          {BADATIME_LOCATIONS.map((loc, i) => (
+          {TIDE_LOCATIONS.map((loc, i) => (
             <Chip
               key={loc.name}
               label={loc.name}
@@ -355,17 +526,12 @@ function MulddaeTab() {
         </Box>
       </Box>
 
-      {/* ── 바다타임 iframe ── */}
-      <Typography variant="caption" color="text.disabled" sx={{ px: 2, display: 'block', mb: 0.5 }}>
-        상세 조석 예보 — 출처: 바다타임
+      {/* ── 조석 타임라인 ── */}
+      <TideTimeline events={tideEvents} sunTimes={sunTimes} isToday={offset === 0} />
+
+      <Typography variant="caption" color="text.disabled" sx={{ px: 2, display: 'block', mt: 0.5, pb: 2 }}>
+        ※ 음력 기반 예상 조석입니다. 정확한 정보는 국립해양조사원을 확인하세요.
       </Typography>
-      <Box
-        key={BADATIME_LOCATIONS[locIdx].url}
-        component="iframe"
-        src={BADATIME_LOCATIONS[locIdx].url}
-        sx={{ width: '100%', height: 'calc(100vh - 440px)', minHeight: 320, border: 'none', display: 'block' }}
-        title="바다타임 물때표"
-      />
     </Box>
   )
 }
