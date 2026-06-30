@@ -77,6 +77,9 @@ function PointCard({ point, onDelete }) {
           <Chip label={point.source === 'from_post' ? '게시글 저장' : '직접 추가'} size="small" variant="outlined" color={point.source === 'from_post' ? 'secondary' : 'primary'} />
         </Box>
         {point.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, ml: 4 }}>{point.description}</Typography>}
+        {point.hazards && (
+          <Typography variant="body2" color="warning.main" sx={{ mt: 0.4, ml: 4 }}>⚠️ {point.hazards}</Typography>
+        )}
         <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mt: 0.3 }}>📍 {coords} · {date}</Typography>
         {!isRoute && point.location_data?.lat && point.location_data?.lng && (
           <Box sx={{ mt: 1 }}>
@@ -104,6 +107,7 @@ function PointCard({ point, onDelete }) {
               {log.water_temp && <Chip label={`수온 ${log.water_temp}°C`} size="small" variant="outlined" />}
               {log.visibility && <Chip label={`시야 ${log.visibility}m`} size="small" variant="outlined" />}
             </Box>
+            {log.buddy && <Typography variant="body2" sx={{ mt: 0.5 }}>🤿 버디: {log.buddy}</Typography>}
             {log.catch_description && <Typography variant="body2" sx={{ mt: 0.5 }}>🐟 {log.catch_description}</Typography>}
             {log.catch_image_url && (
               <Box component="img" src={log.catch_image_url} sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 1, mt: 0.8 }} />
@@ -120,9 +124,9 @@ function PointCard({ point, onDelete }) {
 }
 
 const EMPTY_FORM = {
-  name: '', description: '',
+  name: '', description: '', hazards: '',
   dive_date: '', max_depth: '', dive_start_time: '', dive_end_time: '',
-  water_temp: '', visibility: '', catch_description: '', notes: '',
+  water_temp: '', visibility: '', catch_description: '', buddy: '', notes: '',
 }
 
 function AddPointDialog({ open, onClose, onAdd, userId }) {
@@ -168,6 +172,7 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
       user_id: userId,
       name: form.name.trim(),
       description: form.description.trim() || null,
+      hazards: form.hazards.trim() || null,
       location_type: 'pin',
       location_data: { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name },
     }).select().single()
@@ -199,6 +204,7 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
         water_temp: form.water_temp ? parseFloat(form.water_temp) : null,
         visibility: form.visibility ? parseInt(form.visibility) : null,
         catch_description: form.catch_description || null,
+        buddy: form.buddy.trim() || null,
         catch_image_url: catchImageUrl,
         notes: form.notes || null,
       }).select().single()
@@ -217,6 +223,16 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="포인트 이름 *" value={form.name} onChange={set('name')} fullWidth />
         <TextField label="메모 (선택)" value={form.description} onChange={set('description')} fullWidth multiline rows={2} />
+        <TextField
+          label="위험요소 (선택)"
+          value={form.hazards}
+          onChange={set('hazards')}
+          fullWidth
+          multiline
+          rows={2}
+          placeholder="예: 그물 있음, 조류 강함, 수중 장애물"
+          slotProps={{ input: { sx: { color: 'warning.main' } } }}
+        />
 
         <KakaoMapPicker
           value={selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null}
@@ -267,6 +283,7 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
           <TextField label="수온 (°C)" type="number" value={form.water_temp} onChange={set('water_temp')} fullWidth />
           <TextField label="시야 (m)" type="number" value={form.visibility} onChange={set('visibility')} fullWidth />
         </Box>
+        <TextField label="버디 (함께 다이빙 한 사람)" value={form.buddy} onChange={set('buddy')} fullWidth placeholder="예: 김철수, 이영희" />
         <TextField label="조과 기록" value={form.catch_description} onChange={set('catch_description')} fullWidth multiline rows={2} placeholder="예: 해삼 3마리, 소라 5개" />
 
         <Box>
