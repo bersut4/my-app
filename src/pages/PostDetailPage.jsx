@@ -333,7 +333,7 @@ export default function PostDetailPage() {
 
   const isMe = user?.id === post.user_id
   const canEdit = user && isMe
-  const canDelete = user && isMe
+  const canDelete = user && (isMe || profile?.is_admin)
   const isPostAdmin = post.profiles?.is_admin
   const date = new Date(post.created_at).toLocaleString('ko-KR')
 
