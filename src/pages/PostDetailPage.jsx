@@ -240,7 +240,11 @@ export default function PostDetailPage() {
       setPost(p)
       setComments(c ?? [])
       setLoading(false)
-      if (p) supabase.rpc('increment_post_view', { post_id: Number(id) })
+      if (p) {
+        supabase.rpc('increment_post_view', { post_id: Number(id) }).then(({ error }) => {
+          if (!error) setPost(prev => prev ? { ...prev, view_count: (prev.view_count ?? 0) + 1 } : prev)
+        })
+      }
     })
   }, [id])
 
