@@ -107,7 +107,7 @@ function PostListTab() {
 
 export default function PostsPage() {
   const [tab, setTab] = useState(0)
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
 
   return (
     <AppLayout>
@@ -124,7 +124,7 @@ export default function PostsPage() {
       </AppBar>
 
       {tab === 0 && <PostListTab />}
-      {tab === 1 && <ChatSection user={user} />}
+      {tab === 1 && <ChatSection user={user} profile={profile} />}
     </AppLayout>
   )
 }
