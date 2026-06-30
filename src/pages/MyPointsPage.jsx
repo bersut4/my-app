@@ -25,6 +25,7 @@ import RoomIcon from '@mui/icons-material/Room'
 import RouteIcon from '@mui/icons-material/Route'
 import ScubaDivingIcon from '@mui/icons-material/ScubaDiving'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import LockIcon from '@mui/icons-material/Lock'
 import Avatar from '@mui/material/Avatar'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
@@ -57,7 +58,7 @@ const calcDuration = (start, end) => {
   return { totalMins, display }
 }
 
-function PointCard({ point, onDelete }) {
+function PointCard({ point, onDelete, onEdit }) {
   const date = new Date(point.created_at).toLocaleDateString('ko-KR')
   const isRoute = point.location_type === 'route'
   const coords = isRoute
@@ -117,6 +118,9 @@ function PointCard({ point, onDelete }) {
         )}
       </CardContent>
       <CardActions sx={{ pt: 0 }}>
+        {point.source === 'personal' && (
+          <Button size="small" startIcon={<EditIcon />} onClick={() => onEdit(point)}>수정</Button>
+        )}
         <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => onDelete(point.id)}>삭제</Button>
       </CardActions>
     </Card>
@@ -312,6 +316,203 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
   )
 }
 
+function EditPointDialog({ open, onClose, onSave, point, userId }) {
+  const log = point?.sh_diving_logs?.[0]
+
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [selectedLocation, setSelectedLocation] = useState(null)
+  const [catchImageFile, setCatchImageFile] = useState(null)
+  const [catchImagePreview, setCatchImagePreview] = useState(null)
+  const [keepExistingImage, setKeepExistingImage] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    if (!point) return
+    const l = point.sh_diving_logs?.[0]
+    setForm({
+      name: point.name ?? '',
+      description: point.description ?? '',
+      hazards: point.hazards ?? '',
+      dive_date: l?.dive_date ?? '',
+      max_depth: l?.max_depth?.toString() ?? '',
+      dive_start_time: l?.dive_start_time ?? '',
+      dive_end_time: l?.dive_end_time ?? '',
+      water_temp: l?.water_temp?.toString() ?? '',
+      visibility: l?.visibility?.toString() ?? '',
+      catch_description: l?.catch_description ?? '',
+      buddy: l?.buddy ?? '',
+      notes: l?.notes ?? '',
+    })
+    setSelectedLocation(
+      point.location_data?.lat
+        ? { lat: point.location_data.lat, lng: point.location_data.lng, name: point.location_data.address ?? '' }
+        : null
+    )
+    setCatchImageFile(null)
+    setCatchImagePreview(l?.catch_image_url ?? null)
+    setKeepExistingImage(true)
+    setError('')
+  }, [point])
+
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+  const duration = calcDuration(form.dive_start_time, form.dive_end_time)
+
+  const handleClose = () => { setError(''); onClose() }
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setCatchImageFile(file)
+    setCatchImagePreview(URL.createObjectURL(file))
+    setKeepExistingImage(false)
+  }
+
+  const removeImage = () => {
+    setCatchImageFile(null)
+    setCatchImagePreview(null)
+    setKeepExistingImage(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const submit = async () => {
+    if (!form.name.trim()) { setError('포인트 이름을 입력해주세요.'); return }
+    setLoading(true)
+
+    const { error: pointErr } = await supabase.from('sh_points').update({
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      hazards: form.hazards.trim() || null,
+      location_data: selectedLocation
+        ? { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name }
+        : point.location_data,
+    }).eq('id', point.id)
+
+    if (pointErr) { setError('저장에 실패했어요.'); setLoading(false); return }
+
+    const existingLog = point.sh_diving_logs?.[0]
+    let catchImageUrl = keepExistingImage ? (existingLog?.catch_image_url ?? null) : null
+
+    if (catchImageFile) {
+      const ext = catchImageFile.name.split('.').pop()
+      const path = `diving-logs/${userId}/${point.id}_${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('sh-media').upload(path, catchImageFile)
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('sh-media').getPublicUrl(path)
+        catchImageUrl = urlData.publicUrl
+      }
+    }
+
+    const dur = calcDuration(form.dive_start_time, form.dive_end_time)
+    const logData = {
+      dive_date: form.dive_date || null,
+      max_depth: form.max_depth ? parseFloat(form.max_depth) : null,
+      dive_start_time: form.dive_start_time || null,
+      dive_end_time: form.dive_end_time || null,
+      dive_time: dur?.totalMins ?? null,
+      water_temp: form.water_temp ? parseFloat(form.water_temp) : null,
+      visibility: form.visibility ? parseInt(form.visibility) : null,
+      catch_description: form.catch_description || null,
+      buddy: form.buddy.trim() || null,
+      catch_image_url: catchImageUrl,
+      notes: form.notes || null,
+    }
+
+    if (existingLog) {
+      await supabase.from('sh_diving_logs').update(logData).eq('id', existingLog.id)
+    } else if (form.dive_date) {
+      await supabase.from('sh_diving_logs').insert({ ...logData, user_id: userId, point_id: point.id })
+    }
+
+    const { data: updated } = await supabase.from('sh_points').select('*, sh_diving_logs(*)').eq('id', point.id).single()
+    setLoading(false)
+    onSave(updated)
+    handleClose()
+  }
+
+  return (
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+      <DialogTitle>포인트 수정</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        {error && <Alert severity="error">{error}</Alert>}
+        <TextField label="포인트 이름 *" value={form.name} onChange={set('name')} fullWidth />
+        <TextField label="메모 (선택)" value={form.description} onChange={set('description')} fullWidth multiline rows={2} />
+        <TextField
+          label="위험요소 (선택)"
+          value={form.hazards}
+          onChange={set('hazards')}
+          fullWidth
+          multiline
+          rows={2}
+          placeholder="예: 그물 있음, 조류 강함, 수중 장애물"
+          slotProps={{ input: { sx: { color: 'warning.main' } } }}
+        />
+
+        <KakaoMapPicker
+          value={selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null}
+          onChange={setSelectedLocation}
+        />
+        {selectedLocation && (
+          <Typography variant="caption" color="primary.light" sx={{ mt: -1 }}>
+            📍 {selectedLocation.name}
+          </Typography>
+        )}
+
+        <Divider sx={{ my: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">다이빙 로그</Typography>
+        </Divider>
+
+        <TextField label="날짜" type="date" value={form.dive_date} onChange={set('dive_date')} fullWidth slotProps={{ inputLabel: { shrink: true } }} />
+
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>다이빙 시간</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField label="시작" type="time" value={form.dive_start_time} onChange={set('dive_start_time')} fullWidth slotProps={{ inputLabel: { shrink: true } }} />
+            <Typography color="text.secondary" sx={{ flexShrink: 0 }}>~</Typography>
+            <TextField label="종료" type="time" value={form.dive_end_time} onChange={set('dive_end_time')} fullWidth slotProps={{ inputLabel: { shrink: true } }} />
+          </Box>
+          {duration && (
+            <Typography variant="caption" color="primary.light" sx={{ mt: 0.5, display: 'block' }}>
+              ⏱ {formatKoreanTime(form.dive_start_time)} ~ {formatKoreanTime(form.dive_end_time)} · {duration.display}
+            </Typography>
+          )}
+        </Box>
+
+        <TextField label="최대 수심 (m)" type="number" value={form.max_depth} onChange={set('max_depth')} fullWidth />
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField label="수온 (°C)" type="number" value={form.water_temp} onChange={set('water_temp')} fullWidth />
+          <TextField label="시야 (m)" type="number" value={form.visibility} onChange={set('visibility')} fullWidth />
+        </Box>
+        <TextField label="버디 (함께 다이빙 한 사람)" value={form.buddy} onChange={set('buddy')} fullWidth placeholder="예: 김철수, 이영희" />
+        <TextField label="조과 기록" value={form.catch_description} onChange={set('catch_description')} fullWidth multiline rows={2} placeholder="예: 해삼 3마리, 소라 5개" />
+
+        <Box>
+          <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageSelect} />
+          {catchImagePreview ? (
+            <Box sx={{ position: 'relative' }}>
+              <Box component="img" src={catchImagePreview} sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 1 }} />
+              <IconButton size="small" onClick={removeImage} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.55)' }}>
+                <CloseIcon sx={{ fontSize: 16, color: 'white' }} />
+              </IconButton>
+            </Box>
+          ) : (
+            <Button variant="outlined" size="small" startIcon={<PhotoCameraIcon />} onClick={() => fileInputRef.current?.click()}>
+              조과 사진 추가
+            </Button>
+          )}
+        </Box>
+
+        <TextField label="메모" value={form.notes} onChange={set('notes')} fullWidth multiline rows={2} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose}>취소</Button>
+        <Button variant="contained" onClick={submit} disabled={loading}>{loading ? '저장 중...' : '저장'}</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 function AdminPointsTab() {
   const [allPoints, setAllPoints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -405,6 +606,7 @@ export default function MyPointsPage() {
   const [fromPostPoints, setFromPostPoints] = useState([])
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
+  const [editPoint, setEditPoint] = useState(null)
   const isAdmin = profile?.is_admin
 
   useEffect(() => {
@@ -421,6 +623,11 @@ export default function MyPointsPage() {
     await supabase.from('sh_points').delete().eq('id', pid)
     setPoints(p => p.filter(x => x.id !== pid))
     setFromPostPoints(p => p.filter(x => x.id !== pid))
+  }
+
+  const handlePointSaved = (updated) => {
+    setPoints(prev => prev.map(p => p.id === updated.id ? updated : p))
+    setFromPostPoints(prev => prev.map(p => p.id === updated.id ? updated : p))
   }
 
   if (!user) return (
@@ -468,7 +675,7 @@ export default function MyPointsPage() {
               <Typography color="text.secondary">{tab === 0 ? '추가한 포인트가 없어요.' : '게시글에서 저장한 포인트가 없어요.'}</Typography>
             </Box>
           ) : (
-            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} />)
+            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} onEdit={setEditPoint} />)
           )}
           {tab === 0 && (
             <Fab color="primary" sx={{ position: 'fixed', bottom: 80, right: 20 }} onClick={() => setAddOpen(true)}>
@@ -476,6 +683,7 @@ export default function MyPointsPage() {
             </Fab>
           )}
           <AddPointDialog open={addOpen} onClose={() => setAddOpen(false)} onAdd={p => setPoints(prev => [p, ...prev])} userId={user.id} />
+          <EditPointDialog open={!!editPoint} onClose={() => setEditPoint(null)} onSave={handlePointSaved} point={editPoint} userId={user.id} />
         </Box>
       )}
     </AppLayout>
