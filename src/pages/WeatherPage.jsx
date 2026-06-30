@@ -23,25 +23,52 @@ import { useKakaoLoader } from '../hooks/useKakaoLoader'
 
 const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
 const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
+const kbs = (id) => `https://www.badatime.com/cctv/${id}`
 
 const CCTV_CAMERAS = [
-  { key: 'Incheon',        name: '인천항 조위관측',     region: '서해', lat: 37.4539, lng: 126.6163 },
-  { key: 'SeaFog_Incheon', name: '인천항 해무관측',     region: '서해', lat: 37.4549, lng: 126.6050 },
-  { key: 'SeaFog_Daesan',  name: '대산항 해무관측',     region: '서해', lat: 37.0196, lng: 126.3567 },
-  { key: 'SeaFog_PTDJ',    name: '평택당진항 해무관측', region: '서해', lat: 36.9927, lng: 126.8219 },
-  { key: 'Gunsan',         name: '군산항 조위관측',     region: '서해', lat: 35.9756, lng: 126.7106 },
-  { key: 'SeaFog_Gunsan',  name: '군산항 해무관측',     region: '서해', lat: 35.9760, lng: 126.7100 },
-  { key: 'Jindo',          name: '진도항 조위관측',     region: '남해', lat: 34.4048, lng: 126.2574 },
-  { key: 'SeaFog_Mokpo',   name: '목포항 해무관측',     region: '남해', lat: 34.7799, lng: 126.3769 },
-  { key: 'Yeosu',          name: '여수항 조위관측',     region: '남해', lat: 34.7604, lng: 127.6622 },
-  { key: 'SeaFog_Yeosu',   name: '여수항 해무관측',     region: '남해', lat: 34.7500, lng: 127.6700 },
-  { key: 'Busan',          name: '부산항 조위관측',     region: '동해', lat: 35.1028, lng: 129.0403 },
-  { key: 'SeaFog_Busan',   name: '부산항 해무관측',     region: '동해', lat: 35.0940, lng: 129.0500 },
-  { key: 'SeaFog_Ulsan',   name: '울산항 해무관측',     region: '동해', lat: 35.5013, lng: 129.3867 },
-  { key: 'SeaFog_Pohang',  name: '포항항 해무관측',     region: '동해', lat: 36.0183, lng: 129.3658 },
-  { key: 'Mukho',          name: '묵호항 조위관측',     region: '동해', lat: 37.5505, lng: 129.1220 },
-  { key: 'Moseulpo',       name: '모슬포항 조위관측',   region: '제주', lat: 33.2150, lng: 126.2516 },
-].map(cam => ({ ...cam, src: khoa(cam.key) }))
+  // ── 서해 ──────────────────────────────────────────────────────
+  { key: 'Incheon',        name: '인천항 조위관측',       region: '서해', lat: 37.4539, lng: 126.6163, type: 'hls' },
+  { key: 'SeaFog_Incheon', name: '인천항 해무관측',       region: '서해', lat: 37.4549, lng: 126.6050, type: 'hls' },
+  { key: 'bd100',          name: '인천 연안부두',          region: '서해', lat: 37.4680, lng: 126.6290, type: 'kbs', badatimeId: 100 },
+  { key: 'bd101',          name: '연평도',                 region: '서해', lat: 37.6700, lng: 125.6900, type: 'kbs', badatimeId: 101 },
+  { key: 'SeaFog_PTDJ',    name: '평택당진항 해무관측',   region: '서해', lat: 36.9927, lng: 126.8219, type: 'hls' },
+  { key: 'SeaFog_Daesan',  name: '대산항 해무관측',       region: '서해', lat: 37.0196, lng: 126.3567, type: 'hls' },
+  { key: 'bd102',          name: '신진항 (태안)',           region: '서해', lat: 36.7000, lng: 126.1500, type: 'kbs', badatimeId: 102 },
+  { key: 'bd103',          name: '격렬비열도',             region: '서해', lat: 36.6300, lng: 125.5800, type: 'kbs', badatimeId: 103 },
+  { key: 'Gunsan',         name: '군산항 조위관측',       region: '서해', lat: 35.9756, lng: 126.7106, type: 'hls' },
+  { key: 'SeaFog_Gunsan',  name: '군산항 해무관측',       region: '서해', lat: 35.9760, lng: 126.7100, type: 'hls' },
+  { key: 'bd104',          name: '비응항 (군산)',           region: '서해', lat: 35.9900, lng: 126.6800, type: 'kbs', badatimeId: 104 },
+  // ── 남해 ──────────────────────────────────────────────────────
+  { key: 'SeaFog_Mokpo',   name: '목포항 해무관측',       region: '남해', lat: 34.7799, lng: 126.3769, type: 'hls' },
+  { key: 'bd106',          name: '목포북항',               region: '남해', lat: 34.8000, lng: 126.3900, type: 'kbs', badatimeId: 106 },
+  { key: 'bd107',          name: '가거도',                 region: '남해', lat: 34.0800, lng: 125.1200, type: 'kbs', badatimeId: 107 },
+  { key: 'Jindo',          name: '진도항 조위관측',       region: '남해', lat: 34.4048, lng: 126.2574, type: 'hls' },
+  { key: 'bd108',          name: '완도항',                 region: '남해', lat: 34.3400, lng: 126.7600, type: 'kbs', badatimeId: 108 },
+  { key: 'bd109',          name: '거문도',                 region: '남해', lat: 34.0000, lng: 127.3100, type: 'kbs', badatimeId: 109 },
+  { key: 'Yeosu',          name: '여수항 조위관측',       region: '남해', lat: 34.7604, lng: 127.6622, type: 'hls' },
+  { key: 'SeaFog_Yeosu',   name: '여수항 해무관측',       region: '남해', lat: 34.7500, lng: 127.6700, type: 'hls' },
+  { key: 'bd97',           name: '오동도 (여수)',           region: '남해', lat: 34.7407, lng: 127.7358, type: 'kbs', badatimeId: 97 },
+  { key: 'bd98',           name: '마산 여객선터미널',      region: '남해', lat: 35.1990, lng: 128.5820, type: 'kbs', badatimeId: 98 },
+  // ── 동해 ──────────────────────────────────────────────────────
+  { key: 'Busan',          name: '부산항 조위관측',       region: '동해', lat: 35.1028, lng: 129.0403, type: 'hls' },
+  { key: 'SeaFog_Busan',   name: '부산항 해무관측',       region: '동해', lat: 35.0940, lng: 129.0500, type: 'hls' },
+  { key: 'bd110',          name: '수영만 (해운대)',         region: '동해', lat: 35.1660, lng: 129.1410, type: 'kbs', badatimeId: 110 },
+  { key: 'SeaFog_Ulsan',   name: '울산항 해무관측',       region: '동해', lat: 35.5013, lng: 129.3867, type: 'hls' },
+  { key: 'SeaFog_Pohang',  name: '포항항 해무관측',       region: '동해', lat: 36.0183, lng: 129.3658, type: 'hls' },
+  { key: 'bd111',          name: '두호동 해안로 (포항)',   region: '동해', lat: 36.0280, lng: 129.3720, type: 'kbs', badatimeId: 111 },
+  { key: 'Mukho',          name: '묵호항 조위관측',       region: '동해', lat: 37.5505, lng: 129.1220, type: 'hls' },
+  { key: 'bd112',          name: '주문진 해변 (강릉)',     region: '동해', lat: 37.8970, lng: 128.8230, type: 'kbs', badatimeId: 112 },
+  { key: 'bd113',          name: '속초 등대',              region: '동해', lat: 38.2210, lng: 128.5890, type: 'kbs', badatimeId: 113 },
+  { key: 'bd114',          name: '저동항 (울릉도)',         region: '동해', lat: 37.4900, lng: 130.9200, type: 'kbs', badatimeId: 114 },
+  { key: 'bd115',          name: '독도',                   region: '동해', lat: 37.2400, lng: 131.8640, type: 'kbs', badatimeId: 115 },
+  // ── 제주 ──────────────────────────────────────────────────────
+  { key: 'Moseulpo',       name: '모슬포항 조위관측',     region: '제주', lat: 33.2150, lng: 126.2516, type: 'hls' },
+  { key: 'bd116',          name: '마라도',                 region: '제주', lat: 33.1100, lng: 126.2700, type: 'kbs', badatimeId: 116 },
+].map(cam => ({
+  ...cam,
+  src: cam.type === 'hls' ? khoa(cam.key) : null,
+  iframeUrl: cam.type === 'kbs' ? kbs(cam.badatimeId) : null,
+}))
 
 const REGION_COLORS = { 서해: '#0096C7', 남해: '#0077B6', 동해: '#023E8A', 제주: '#48CAE4' }
 
@@ -117,10 +144,24 @@ function CctvTab() {
           size="small"
           sx={{ bgcolor: REGION_COLORS[selectedCamera.region], color: '#fff', fontSize: '0.65rem', height: 20 }}
         />
-        <Chip label="국립해양조사원" size="small" sx={{ fontSize: '0.6rem', height: 20 }} />
+        <Chip
+          label={selectedCamera.type === 'kbs' ? 'KBS' : '해양조사원'}
+          size="small"
+          sx={{ fontSize: '0.6rem', height: 20, bgcolor: selectedCamera.type === 'kbs' ? '#1a5276' : undefined }}
+        />
       </Box>
 
-      <HlsVideoPlayer key={selectedCamera.src} src={selectedCamera.src} title={selectedCamera.name} />
+      {selectedCamera.type === 'kbs' ? (
+        <Box
+          key={selectedCamera.iframeUrl}
+          component="iframe"
+          src={selectedCamera.iframeUrl}
+          sx={{ width: '100%', height: 320, border: 'none', display: 'block' }}
+          title={selectedCamera.name}
+        />
+      ) : (
+        <HlsVideoPlayer key={selectedCamera.src} src={selectedCamera.src} title={selectedCamera.name} />
+      )}
 
       {/* 지역별 빠른 선택 */}
       {['서해', '남해', '동해', '제주'].map(region => {
