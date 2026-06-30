@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -13,9 +13,12 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
 import WavesIcon from '@mui/icons-material/Waves'
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt'
 import VideocamIcon from '@mui/icons-material/Videocam'
+import WaterIcon from '@mui/icons-material/Water'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
@@ -150,6 +153,147 @@ function CctvTab() {
   )
 }
 
+// ── 물때 계산 ─────────────────────────────────────────────────
+const LUNAR_MONTH = 29.53058868
+
+function getMulddaeNum(date = new Date()) {
+  const refMs = new Date('2000-01-06T18:14:00Z').getTime()
+  const lunarMs = LUNAR_MONTH * 86400000
+  const elapsed = ((date.getTime() - refMs) % lunarMs + lunarMs) % lunarMs
+  const dayInCycle = elapsed / 86400000
+  const half = LUNAR_MONTH / 2
+  const inHalf = dayInCycle < half ? dayInCycle : dayInCycle - half
+  // 사리는 삭/망 후 약 1.5일 뒤 → 해당 시점을 1물로 시작
+  const adjusted = (inHalf - 1.5 + half) % half
+  return Math.min(15, Math.max(1, Math.floor((adjusted / half) * 14) + 1))
+}
+
+const MULDDAE_INFO = {
+  1:  { name: '한사리',   level: 5, color: '#023E8A' },
+  2:  { name: '두물',     level: 5, color: '#0353A4' },
+  3:  { name: '세물',     level: 4, color: '#0077B6' },
+  4:  { name: '네물',     level: 3, color: '#0096C7' },
+  5:  { name: '다섯물',   level: 3, color: '#00B4D8' },
+  6:  { name: '여섯물',   level: 2, color: '#48CAE4' },
+  7:  { name: '일곱물',   level: 2, color: '#90E0EF' },
+  8:  { name: '조금',     level: 1, color: '#ADE8F4' },
+  9:  { name: '무시',     level: 1, color: '#90E0EF' },
+  10: { name: '열물',     level: 2, color: '#48CAE4' },
+  11: { name: '열한물',   level: 2, color: '#00B4D8' },
+  12: { name: '열두물',   level: 3, color: '#0096C7' },
+  13: { name: '열세물',   level: 4, color: '#0077B6' },
+  14: { name: '열네물',   level: 5, color: '#0353A4' },
+  15: { name: '보름사리', level: 5, color: '#023E8A' },
+}
+
+const BAR_HEIGHTS = { 5: 44, 4: 34, 3: 26, 2: 18, 1: 12 }
+
+const TIDE_MSGS = {
+  strong: '⚠️ 사리 기간: 조류가 강합니다. 해루질·다이빙 시 주의하세요.',
+  weak:   '✅ 조금·무시 기간: 조수 움직임이 적어 수중 활동에 유리합니다.',
+  mid:    '💧 조수가 변화하는 시기입니다.',
+}
+
+const BADATIME_LOCATIONS = [
+  { name: '인천',   url: 'https://www.badatime.com/36.html' },
+  { name: '군산',   url: 'https://www.badatime.com/25.html' },
+  { name: '목포',   url: 'https://www.badatime.com/21.html' },
+  { name: '여수',   url: 'https://www.badatime.com/16.html' },
+  { name: '부산',   url: 'https://www.badatime.com/1.html' },
+  { name: '울산',   url: 'https://www.badatime.com/2.html' },
+  { name: '포항',   url: 'https://www.badatime.com/3.html' },
+  { name: '속초',   url: 'https://www.badatime.com/10.html' },
+  { name: '제주',   url: 'https://www.badatime.com/18.html' },
+]
+
+function MulddaeTab() {
+  const num = useMemo(() => getMulddaeNum(), [])
+  const info = MULDDAE_INFO[num]
+  const [locIdx, setLocIdx] = useState(4) // 부산 기본
+  const today = new Date()
+  const dateStr = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+
+  const msg = info.level >= 4 ? TIDE_MSGS.strong : info.level <= 2 ? TIDE_MSGS.weak : TIDE_MSGS.mid
+
+  return (
+    <Box sx={{ pb: 10 }}>
+      <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+        <Card>
+          <CardContent sx={{ pb: '12px !important' }}>
+            <Typography variant="caption" color="text.secondary">{dateStr} 오늘의 물때</Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+              {/* 물때 숫자 */}
+              <Box sx={{ textAlign: 'center', minWidth: 80 }}>
+                <Typography sx={{ fontSize: '2.8rem', fontWeight: 800, color: info.color, lineHeight: 1 }}>
+                  {num}물
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.3 }}>{info.name}</Typography>
+              </Box>
+
+              {/* 15단계 막대 그래프 */}
+              <Box sx={{ flex: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: 48 }}>
+                  {Array.from({ length: 15 }, (_, i) => {
+                    const n = i + 1
+                    const m = MULDDAE_INFO[n]
+                    const isActive = n === num
+                    return (
+                      <Box
+                        key={n}
+                        sx={{
+                          flex: 1,
+                          height: BAR_HEIGHTS[m.level],
+                          bgcolor: isActive ? m.color : m.color,
+                          opacity: isActive ? 1 : 0.35,
+                          borderRadius: '2px 2px 0 0',
+                          border: isActive ? '1.5px solid #fff' : 'none',
+                          transition: 'opacity 0.2s',
+                        }}
+                      />
+                    )
+                  })}
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.4 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>사리</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>조금</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>사리</Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            <Box sx={{ mt: 1.5, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary">{msg}</Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* 지역별 조석 예보 */}
+      <Box sx={{ px: 2, pb: 1 }}>
+        <FormControl fullWidth size="small">
+          <InputLabel>지역 선택</InputLabel>
+          <Select value={locIdx} label="지역 선택" onChange={e => setLocIdx(e.target.value)}>
+            {BADATIME_LOCATIONS.map((loc, i) => (
+              <MenuItem key={loc.name} value={i}>{loc.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ px: 2, display: 'block', mb: 0.5 }}>
+        상세 조석 예보 (출처: 바다타임)
+      </Typography>
+      <Box
+        key={BADATIME_LOCATIONS[locIdx].url}
+        component="iframe"
+        src={BADATIME_LOCATIONS[locIdx].url}
+        sx={{ width: '100%', height: 'calc(100vh - 380px)', border: 'none', display: 'block' }}
+        title="바다타임 물때표"
+      />
+    </Box>
+  )
+}
+
 const WINDY_OVERLAYS = [
   { value: 'waves', label: '파도' },
   { value: 'wind', label: '바람' },
@@ -228,11 +372,13 @@ export default function WeatherPage() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="실시간 지도" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </AppBar>
 
       {tab === 0 && <WindyTab />}
       {tab === 1 && <CctvTab />}
+      {tab === 2 && <MulddaeTab />}
     </AppLayout>
   )
 }
