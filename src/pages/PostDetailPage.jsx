@@ -240,7 +240,7 @@ export default function PostDetailPage() {
       setPost(p)
       setComments(c ?? [])
       setLoading(false)
-      if (p && user?.id !== p.user_id) supabase.from('sh_posts').update({ view_count: (p.view_count ?? 0) + 1 }).eq('id', id)
+      if (p) supabase.rpc('increment_post_view', { post_id: Number(id) })
     })
   }, [id])
 
