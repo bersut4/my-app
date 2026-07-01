@@ -9,6 +9,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CardActions from '@mui/material/CardActions'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
 import Fab from '@mui/material/Fab'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -28,13 +29,111 @@ import RouteIcon from '@mui/icons-material/Route'
 import ScubaDivingIcon from '@mui/icons-material/ScubaDiving'
 import DeleteIcon from '@mui/icons-material/Delete'
 import LockIcon from '@mui/icons-material/Lock'
+import CloseIcon from '@mui/icons-material/Close'
 import Avatar from '@mui/material/Avatar'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import AppLayout from '../components/layout/AppLayout'
+import KakaoMapView from '../components/KakaoMapView'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
-function PointCard({ point, onDelete }) {
+function PointDetailDialog({ point, open, onClose, onDelete }) {
+  if (!point) return null
+  const isRoute = point.location_type === 'route'
+  const date = new Date(point.created_at).toLocaleString('ko-KR')
+  const lat = isRoute ? point.location_data[0]?.lat : point.location_data.lat
+  const lng = isRoute ? point.location_data[0]?.lng : point.location_data.lng
+
+  const handleDelete = () => {
+    onDelete(point.id)
+    onClose()
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      sx={{ '& .MuiBackdrop-root': { bgcolor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' } }}
+    >
+      <DialogTitle sx={{ pr: 6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isRoute ? <RouteIcon sx={{ color: 'primary.light' }} /> : <RoomIcon sx={{ color: 'primary.light' }} />}
+          포인트 상세
+        </Box>
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 8, top: 8 }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <TextField
+          label="포인트 이름"
+          value={point.name}
+          disabled
+          fullWidth
+        />
+
+        <TextField
+          label="메모"
+          value={point.description ?? ''}
+          disabled
+          fullWidth
+          multiline
+          rows={2}
+        />
+
+        <FormControl fullWidth disabled>
+          <InputLabel>기록 방식</InputLabel>
+          <Select value={point.location_type} label="기록 방식">
+            <MenuItem value="pin">핀 (단일 지점)</MenuItem>
+            <MenuItem value="route">경로 (시작 지점 입력)</MenuItem>
+          </Select>
+        </FormControl>
+
+        {!isRoute ? (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField label="위도" value={point.location_data.lat ?? ''} disabled fullWidth />
+            <TextField label="경도" value={point.location_data.lng ?? ''} disabled fullWidth />
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {point.location_data.map((coord, idx) => (
+              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Typography variant="caption" color="primary.light" sx={{ minWidth: 24, fontWeight: 700 }}>#{idx + 1}</Typography>
+                <TextField label="위도" value={coord.lat ?? ''} disabled fullWidth size="small" />
+                <TextField label="경도" value={coord.lng ?? ''} disabled fullWidth size="small" />
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {lat && lng && (
+          <KakaoMapView lat={lat} lng={lng} />
+        )}
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label={point.source === 'from_post' ? '게시글 저장' : '직접 추가'}
+            size="small"
+            variant="outlined"
+            color={point.source === 'from_post' ? 'secondary' : 'primary'}
+          />
+          <Typography variant="caption" color="text.secondary">{date} 저장됨</Typography>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={handleDelete}>삭제</Button>
+        <Box sx={{ flex: 1 }} />
+        <Button onClick={onClose} variant="outlined" size="small">닫기</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function PointCard({ point, onDelete, onClick }) {
   const date = new Date(point.created_at).toLocaleDateString('ko-KR')
   const isRoute = point.location_type === 'route'
   const coords = isRoute
@@ -42,7 +141,10 @@ function PointCard({ point, onDelete }) {
     : `위도 ${point.location_data.lat?.toFixed(4)}, 경도 ${point.location_data.lng?.toFixed(4)}`
 
   return (
-    <Card sx={{ mb: 1.5 }}>
+    <Card
+      sx={{ mb: 1.5, cursor: 'pointer', transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(0,180,216,0.05)', borderColor: 'rgba(0,180,216,0.3)' } }}
+      onClick={onClick}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -55,7 +157,8 @@ function PointCard({ point, onDelete }) {
         <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mt: 0.3 }}>{coords} · {date}</Typography>
       </CardContent>
       <CardActions sx={{ pt: 0 }}>
-        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => onDelete(point.id)}>삭제</Button>
+        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={e => { e.stopPropagation(); onDelete(point.id) }}>삭제</Button>
+        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', pr: 1 }}>눌러서 상세보기</Typography>
       </CardActions>
     </Card>
   )
@@ -302,6 +405,7 @@ export default function MyPointsPage() {
   const [fromPostPoints, setFromPostPoints] = useState([])
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
+  const [selectedPoint, setSelectedPoint] = useState(null)
   const isAdmin = profile?.is_admin
 
   useEffect(() => {
@@ -364,7 +468,7 @@ export default function MyPointsPage() {
               <Typography color="text.secondary">{tab === 0 ? '추가한 포인트가 없어요.' : '게시글에서 저장한 포인트가 없어요.'}</Typography>
             </Box>
           ) : (
-            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} />)
+            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} onClick={() => setSelectedPoint(p)} />)
           )}
           {tab === 0 && (
             <Fab color="primary" sx={{ position: 'fixed', bottom: 80, right: 20 }} onClick={() => setAddOpen(true)}>
@@ -372,6 +476,12 @@ export default function MyPointsPage() {
             </Fab>
           )}
           <AddPointDialog open={addOpen} onClose={() => setAddOpen(false)} onAdd={p => setPoints(prev => [p, ...prev])} userId={user.id} />
+          <PointDetailDialog
+            point={selectedPoint}
+            open={!!selectedPoint}
+            onClose={() => setSelectedPoint(null)}
+            onDelete={deletePoint}
+          />
         </Box>
       ) : (
         <DivingLogTab userId={user.id} />
