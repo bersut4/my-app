@@ -9,17 +9,21 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CardActions from '@mui/material/CardActions'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
 import Fab from '@mui/material/Fab'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import TextField from '@mui/material/TextField'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
-import IconButton from '@mui/material/IconButton'
 import AddIcon from '@mui/icons-material/Add'
 import RoomIcon from '@mui/icons-material/Room'
 import RouteIcon from '@mui/icons-material/Route'
@@ -27,10 +31,10 @@ import ScubaDivingIcon from '@mui/icons-material/ScubaDiving'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import LockIcon from '@mui/icons-material/Lock'
+import CloseIcon from '@mui/icons-material/Close'
 import Avatar from '@mui/material/Avatar'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
-import CloseIcon from '@mui/icons-material/Close'
 import AppLayout from '../components/layout/AppLayout'
 import KakaoMapPicker from '../components/KakaoMapPicker'
 import KakaoMapView from '../components/KakaoMapView'
@@ -58,7 +62,103 @@ const calcDuration = (start, end) => {
   return { totalMins, display }
 }
 
-function PointCard({ point, onDelete, onEdit }) {
+function PointDetailDialog({ point, open, onClose, onDelete }) {
+  if (!point) return null
+  const isRoute = point.location_type === 'route'
+  const date = new Date(point.created_at).toLocaleString('ko-KR')
+  const lat = isRoute ? point.location_data[0]?.lat : point.location_data.lat
+  const lng = isRoute ? point.location_data[0]?.lng : point.location_data.lng
+
+  const handleDelete = () => {
+    onDelete(point.id)
+    onClose()
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      sx={{ '& .MuiBackdrop-root': { bgcolor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' } }}
+    >
+      <DialogTitle sx={{ pr: 6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isRoute ? <RouteIcon sx={{ color: 'primary.light' }} /> : <RoomIcon sx={{ color: 'primary.light' }} />}
+          포인트 상세
+        </Box>
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 8, top: 8 }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <TextField
+          label="포인트 이름"
+          value={point.name}
+          disabled
+          fullWidth
+        />
+
+        <TextField
+          label="메모"
+          value={point.description ?? ''}
+          disabled
+          fullWidth
+          multiline
+          rows={2}
+        />
+
+        <FormControl fullWidth disabled>
+          <InputLabel>기록 방식</InputLabel>
+          <Select value={point.location_type} label="기록 방식">
+            <MenuItem value="pin">핀 (단일 지점)</MenuItem>
+            <MenuItem value="route">경로 (시작 지점 입력)</MenuItem>
+          </Select>
+        </FormControl>
+
+        {!isRoute ? (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField label="위도" value={point.location_data.lat ?? ''} disabled fullWidth />
+            <TextField label="경도" value={point.location_data.lng ?? ''} disabled fullWidth />
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {point.location_data.map((coord, idx) => (
+              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Typography variant="caption" color="primary.light" sx={{ minWidth: 24, fontWeight: 700 }}>#{idx + 1}</Typography>
+                <TextField label="위도" value={coord.lat ?? ''} disabled fullWidth size="small" />
+                <TextField label="경도" value={coord.lng ?? ''} disabled fullWidth size="small" />
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {lat && lng && (
+          <KakaoMapView lat={lat} lng={lng} />
+        )}
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label={point.source === 'from_post' ? '게시글 저장' : '직접 추가'}
+            size="small"
+            variant="outlined"
+            color={point.source === 'from_post' ? 'secondary' : 'primary'}
+          />
+          <Typography variant="caption" color="text.secondary">{date} 저장됨</Typography>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={handleDelete}>삭제</Button>
+        <Box sx={{ flex: 1 }} />
+        <Button onClick={onClose} variant="outlined" size="small">닫기</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function PointCard({ point, onDelete, onEdit, onClick }) {
   const date = new Date(point.created_at).toLocaleDateString('ko-KR')
   const isRoute = point.location_type === 'route'
   const coords = isRoute
@@ -68,7 +168,10 @@ function PointCard({ point, onDelete, onEdit }) {
   const duration = log ? calcDuration(log.dive_start_time, log.dive_end_time) : null
 
   return (
-    <Card sx={{ mb: 1.5 }}>
+    <Card
+      sx={{ mb: 1.5, cursor: 'pointer', transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(0,180,216,0.05)', borderColor: 'rgba(0,180,216,0.3)' } }}
+      onClick={onClick}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -119,9 +222,10 @@ function PointCard({ point, onDelete, onEdit }) {
       </CardContent>
       <CardActions sx={{ pt: 0 }}>
         {point.source === 'personal' && (
-          <Button size="small" startIcon={<EditIcon />} onClick={() => onEdit(point)}>수정</Button>
+          <Button size="small" startIcon={<EditIcon />} onClick={e => { e.stopPropagation(); onEdit(point) }}>수정</Button>
         )}
-        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => onDelete(point.id)}>삭제</Button>
+        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={e => { e.stopPropagation(); onDelete(point.id) }}>삭제</Button>
+        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', pr: 1 }}>눌러서 상세보기</Typography>
       </CardActions>
     </Card>
   )
@@ -607,6 +711,7 @@ export default function MyPointsPage() {
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
   const [editPoint, setEditPoint] = useState(null)
+  const [selectedPoint, setSelectedPoint] = useState(null)
   const isAdmin = profile?.is_admin
 
   useEffect(() => {
@@ -675,7 +780,7 @@ export default function MyPointsPage() {
               <Typography color="text.secondary">{tab === 0 ? '추가한 포인트가 없어요.' : '게시글에서 저장한 포인트가 없어요.'}</Typography>
             </Box>
           ) : (
-            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} onEdit={setEditPoint} />)
+            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} onEdit={setEditPoint} onClick={() => setSelectedPoint(p)} />)
           )}
           {tab === 0 && (
             <Fab color="primary" sx={{ position: 'fixed', bottom: 80, right: 20 }} onClick={() => setAddOpen(true)}>
@@ -684,6 +789,12 @@ export default function MyPointsPage() {
           )}
           <AddPointDialog open={addOpen} onClose={() => setAddOpen(false)} onAdd={p => setPoints(prev => [p, ...prev])} userId={user.id} />
           <EditPointDialog open={!!editPoint} onClose={() => setEditPoint(null)} onSave={handlePointSaved} point={editPoint} userId={user.id} />
+          <PointDetailDialog
+            point={selectedPoint}
+            open={!!selectedPoint}
+            onClose={() => setSelectedPoint(null)}
+            onDelete={deletePoint}
+          />
         </Box>
       )}
     </AppLayout>
