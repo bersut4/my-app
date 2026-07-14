@@ -68,6 +68,8 @@ function PointDetailDialog({ point, open, onClose, onDelete }) {
   const date = new Date(point.created_at).toLocaleString('ko-KR')
   const lat = isRoute ? point.location_data[0]?.lat : point.location_data.lat
   const lng = isRoute ? point.location_data[0]?.lng : point.location_data.lng
+  const log = point.sh_diving_logs?.[0]
+  const duration = log ? calcDuration(log.dive_start_time, log.dive_end_time) : null
 
   const handleDelete = () => {
     onDelete(point.id)
@@ -109,6 +111,18 @@ function PointDetailDialog({ point, open, onClose, onDelete }) {
           rows={2}
         />
 
+        {point.hazards && (
+          <TextField
+            label="위험요소"
+            value={point.hazards}
+            disabled
+            fullWidth
+            multiline
+            rows={2}
+            slotProps={{ input: { sx: { color: 'warning.main' } } }}
+          />
+        )}
+
         <FormControl fullWidth disabled>
           <InputLabel>기록 방식</InputLabel>
           <Select value={point.location_type} label="기록 방식">
@@ -136,6 +150,44 @@ function PointDetailDialog({ point, open, onClose, onDelete }) {
 
         {lat && lng && (
           <KakaoMapView lat={lat} lng={lng} />
+        )}
+
+        <Divider sx={{ my: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">다이빙 로그</Typography>
+        </Divider>
+
+        {log ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ScubaDivingIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{log.dive_date}</Typography>
+            </Box>
+
+            {log.dive_start_time && log.dive_end_time && (
+              <Typography variant="body2">
+                ⏱ {formatKoreanTime(log.dive_start_time)} ~ {formatKoreanTime(log.dive_end_time)}
+                {duration && <Typography component="span" variant="caption" color="primary.light" sx={{ ml: 0.8 }}>({duration.display})</Typography>}
+              </Typography>
+            )}
+
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {log.max_depth && <Chip label={`수심 ${log.max_depth}m`} size="small" variant="outlined" />}
+              {!log.dive_start_time && log.dive_time && <Chip label={`${log.dive_time}분`} size="small" variant="outlined" />}
+              {log.water_temp && <Chip label={`수온 ${log.water_temp}°C`} size="small" variant="outlined" />}
+              {log.visibility && <Chip label={`시야 ${log.visibility}m`} size="small" variant="outlined" />}
+            </Box>
+
+            {log.buddy && <Typography variant="body2">🤿 버디: {log.buddy}</Typography>}
+            {log.catch_description && <Typography variant="body2">🐟 {log.catch_description}</Typography>}
+
+            {log.catch_image_url && (
+              <Box component="img" src={log.catch_image_url} sx={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 1 }} />
+            )}
+
+            {log.notes && <Typography variant="body2" color="text.secondary">{log.notes}</Typography>}
+          </Box>
+        ) : (
+          <Typography variant="caption" color="text.secondary">기록된 다이빙 로그가 없어요.</Typography>
         )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
