@@ -19,11 +19,21 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CircularProgress from '@mui/material/CircularProgress'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
+import Paper from '@mui/material/Paper'
+import TextField from '@mui/material/TextField'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemText from '@mui/material/ListItemText'
+import Snackbar from '@mui/material/Snackbar'
 import WavesIcon from '@mui/icons-material/Waves'
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt'
 import MapIcon from '@mui/icons-material/Map'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import WaterIcon from '@mui/icons-material/Water'
+import SearchIcon from '@mui/icons-material/Search'
+import ShareIcon from '@mui/icons-material/Share'
+import CloseIcon from '@mui/icons-material/Close'
+import RoomIcon from '@mui/icons-material/Room'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
@@ -111,10 +121,32 @@ function CctvMap({ cameras, selectedKey, onSelect }) {
   return <Box ref={containerRef} sx={{ width: '100%', height: 260 }} />
 }
 
+function buildKakaoMapShareUrl({ lat, lng, name }) {
+  const safeName = (name || '공유한 위치').replace(/,/g, ' ').trim() || '공유한 위치'
+  return `https://map.kakao.com/link/map/${encodeURIComponent(safeName)},${lat},${lng}`
+}
+
 function LiveMapTab() {
   const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  const markerRef = useRef(null)
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
+
+  const [pin, setPin] = useState(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [toast, setToast] = useState('')
+
+  const placePin = (lat, lng, name) => {
+    const { kakao } = window
+    const position = new kakao.maps.LatLng(lat, lng)
+    if (markerRef.current) markerRef.current.setMap(null)
+    markerRef.current = new kakao.maps.Marker({ position, map: mapRef.current })
+    mapRef.current.panTo(position)
+    setPin({ lat, lng, name })
+  }
 
   useEffect(() => {
     if (!ready || !containerRef.current) return
@@ -125,20 +157,69 @@ function LiveMapTab() {
       level: 9,
       mapTypeId: kakao.maps.MapTypeId[mapType],
     })
+    mapRef.current = map
+
+    kakao.maps.event.addListener(map, 'click', (e) => {
+      const lat = e.latLng.getLat()
+      const lng = e.latLng.getLng()
+      const geocoder = new kakao.maps.services.Geocoder()
+      geocoder.coord2Address(lng, lat, (result, status) => {
+        const name = status === kakao.maps.services.Status.OK && result[0]
+          ? (result[0].address?.address_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+          : `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+        placePin(lat, lng, name)
+      })
+    })
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const loc = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
-          map.setCenter(loc)
+          map.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude))
           map.setLevel(6)
-          new kakao.maps.Marker({ position: loc, map })
         },
         () => {},
         { timeout: 3000 }
       )
     }
   }, [ready, mapType])
+
+  const handleSearch = () => {
+    if (!query.trim() || !window.kakao || !ready) return
+    setSearching(true)
+    const places = new window.kakao.maps.services.Places()
+    places.keywordSearch(query.trim(), (data, status) => {
+      setSearching(false)
+      setResults(status === window.kakao.maps.services.Status.OK ? data.slice(0, 5) : [])
+    })
+  }
+
+  const selectResult = (place) => {
+    placePin(parseFloat(place.y), parseFloat(place.x), place.place_name)
+    mapRef.current.setLevel(4)
+    setResults([])
+    setQuery(place.place_name)
+  }
+
+  const clearPin = () => {
+    if (markerRef.current) markerRef.current.setMap(null)
+    markerRef.current = null
+    setPin(null)
+  }
+
+  const handleShare = async () => {
+    if (!pin) return
+    const url = buildKakaoMapShareUrl(pin)
+    if (navigator.share) {
+      try { await navigator.share({ title: pin.name, url }) } catch { /* 사용자 취소 등은 무시 */ }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setToast('공유 링크가 복사됐어요')
+    } catch {
+      setToast('링크 복사에 실패했어요')
+    }
+  }
 
   if (!ready) {
     return (
@@ -148,7 +229,70 @@ function LiveMapTab() {
     )
   }
 
-  return <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Paper sx={{ display: 'flex', alignItems: 'center', pl: 1.5, pr: 0.5 }}>
+          <TextField
+            variant="standard"
+            placeholder="장소를 검색해보세요 (예: 강릉 경포해변)"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+            fullWidth
+            slotProps={{ input: { disableUnderline: true } }}
+          />
+          <IconButton onClick={handleSearch} disabled={searching || !query.trim()}>
+            {searching ? <CircularProgress size={18} /> : <SearchIcon />}
+          </IconButton>
+        </Paper>
+
+        {results.length > 0 && (
+          <Paper sx={{ maxHeight: 260, overflowY: 'auto' }}>
+            <List disablePadding>
+              {results.map(place => (
+                <ListItemButton key={place.id} onClick={() => selectResult(place)}>
+                  <ListItemText
+                    primary={place.place_name}
+                    secondary={place.road_address_name || place.address_name}
+                    slotProps={{ secondary: { noWrap: true } }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </Paper>
+        )}
+      </Box>
+
+      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
+
+      {pin && (
+        <Paper sx={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 10, p: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <RoomIcon sx={{ color: 'primary.light', flexShrink: 0 }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{pin.name}</Typography>
+            <Typography variant="caption" color="text.secondary">{pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</Typography>
+          </Box>
+          <Button size="small" startIcon={<ShareIcon />} onClick={handleShare} sx={{ flexShrink: 0 }}>공유</Button>
+          <IconButton size="small" onClick={clearPin}><CloseIcon fontSize="small" /></IconButton>
+        </Paper>
+      )}
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={2000}
+        onClose={() => setToast('')}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+
+      {!pin && (
+        <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', px: 1, py: 0.3, borderRadius: 1 }}>
+          지도를 터치하면 핀이 찍혀요
+        </Typography>
+      )}
+    </Box>
+  )
 }
 
 function CctvTab() {
