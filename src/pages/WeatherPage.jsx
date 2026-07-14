@@ -21,6 +21,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import WavesIcon from '@mui/icons-material/Waves'
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt'
+import MapIcon from '@mui/icons-material/Map'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import WaterIcon from '@mui/icons-material/Water'
 import AppLayout from '../components/layout/AppLayout'
@@ -108,6 +109,46 @@ function CctvMap({ cameras, selectedKey, onSelect }) {
   }
 
   return <Box ref={containerRef} sx={{ width: '100%', height: 260 }} />
+}
+
+function LiveMapTab() {
+  const containerRef = useRef(null)
+  const { ready } = useKakaoLoader()
+  const { mapType } = useMapType()
+
+  useEffect(() => {
+    if (!ready || !containerRef.current) return
+    const { kakao } = window
+    const center = new kakao.maps.LatLng(36.5, 127.8)
+    const map = new kakao.maps.Map(containerRef.current, {
+      center,
+      level: 9,
+      mapTypeId: kakao.maps.MapTypeId[mapType],
+    })
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
+          map.setCenter(loc)
+          map.setLevel(6)
+          new kakao.maps.Marker({ position: loc, map })
+        },
+        () => {},
+        { timeout: 3000 }
+      )
+    }
+  }, [ready, mapType])
+
+  if (!ready) {
+    return (
+      <Box sx={{ height: 'calc(100vh - 160px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress size={28} />
+      </Box>
+    )
+  }
+
+  return <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
 }
 
 function CctvTab() {
@@ -617,16 +658,18 @@ export default function WeatherPage() {
           <Typography variant="h3" sx={{ flexGrow: 1 }}>Sea Hunt</Typography>
           <ThemeToggleButton />
         </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
-          <Tab label="실시간 지도" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+          <Tab label="날씨" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="실시간 지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </AppBar>
 
       {tab === 0 && <WindyTab />}
-      {tab === 1 && <CctvTab />}
-      {tab === 2 && <MulddaeTab />}
+      {tab === 1 && <LiveMapTab />}
+      {tab === 2 && <CctvTab />}
+      {tab === 3 && <MulddaeTab />}
     </AppLayout>
   )
 }
