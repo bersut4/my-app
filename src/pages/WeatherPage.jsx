@@ -45,7 +45,7 @@ import { useKakaoLoader } from '../hooks/useKakaoLoader'
 import { useMapType } from '../contexts/FontSizeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { fetchDepthPoints, depthColor, DEPTH_LEGEND } from '../lib/khoaDepth'
+import { fetchDepthPointsTiled, depthColor, DEPTH_LEGEND } from '../lib/khoaDepth'
 
 const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
 const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
@@ -516,7 +516,7 @@ function OceanInfoTab() {
     setLoading(true)
     setErrorMsg('')
     try {
-      const points = await fetchDepthPoints({
+      const points = await fetchDepthPointsTiled({
         south: sw.getLat(), north: ne.getLat(), west: sw.getLng(), east: ne.getLng(),
       })
       clearOverlays()

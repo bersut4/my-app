@@ -15,6 +15,26 @@ export async function fetchDepthPoints({ south, north, west, east }, numOfRows =
   return json.points ?? []
 }
 
+// 수심 API는 요청 영역을 고르게 샘플링하지 않고 남서쪽 경계부터 순서대로 내려주기 때문에,
+// 영역을 격자로 나눠 칸마다 나눠 받아야 지도 전체에 고르게 점이 표시된다
+export async function fetchDepthPointsTiled({ south, north, west, east }, gridSize = 4, rowsPerCell = 40) {
+  const latStep = (north - south) / gridSize
+  const lngStep = (east - west) / gridSize
+  const cells = []
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      cells.push({
+        south: south + i * latStep,
+        north: south + (i + 1) * latStep,
+        west: west + j * lngStep,
+        east: west + (j + 1) * lngStep,
+      })
+    }
+  }
+  const results = await Promise.allSettled(cells.map(cell => fetchDepthPoints(cell, rowsPerCell)))
+  return results.flatMap(r => (r.status === 'fulfilled' ? r.value : []))
+}
+
 export function depthColor(depth) {
   if (depth < 10) return '#CAF0F8'
   if (depth < 20) return '#90E0EF'
