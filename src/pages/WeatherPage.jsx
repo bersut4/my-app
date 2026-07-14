@@ -658,7 +658,7 @@ export default function WeatherPage() {
           <Typography variant="h3" sx={{ flexGrow: 1 }}>Sea Hunt</Typography>
           <ThemeToggleButton />
         </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="날씨" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="실시간 지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
