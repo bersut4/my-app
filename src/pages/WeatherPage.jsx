@@ -502,24 +502,24 @@ function OceanInfoTab() {
     const map = mapRef.current
     if (!map) return
 
-    const bounds = map.getBounds()
-    const sw = bounds.getSouthWest()
-    const ne = bounds.getNorthEast()
-
-    // "레벨" 숫자는 화면 폭에 따라 실제로 보이는 범위가 달라지므로(PC는 화면이 넓어 같은 레벨이라도
-    // 훨씬 넓은 지역이 보임), 화면 폭이 아니라 실제 위경도 범위(km)로 확대 정도를 판단한다
-    const latSpanKm = (ne.getLat() - sw.getLat()) * 111
-    const lngSpanKm = (ne.getLng() - sw.getLng()) * 111 * Math.cos((sw.getLat() * Math.PI) / 180)
-    if (latSpanKm > DEPTH_MAX_SPAN_KM || lngSpanKm > DEPTH_MAX_SPAN_KM) {
-      setTooZoomedOut(true)
-      clearOverlays()
-      return
-    }
-    setTooZoomedOut(false)
-
     setLoading(true)
     setErrorMsg('')
     try {
+      const bounds = map.getBounds()
+      const sw = bounds.getSouthWest()
+      const ne = bounds.getNorthEast()
+
+      // "레벨" 숫자는 화면 폭에 따라 실제로 보이는 범위가 달라지므로(PC는 화면이 넓어 같은 레벨이라도
+      // 훨씬 넓은 지역이 보임), 화면 폭이 아니라 실제 위경도 범위(km)로 확대 정도를 판단한다
+      const latSpanKm = (ne.getLat() - sw.getLat()) * 111
+      const lngSpanKm = (ne.getLng() - sw.getLng()) * 111 * Math.cos((sw.getLat() * Math.PI) / 180)
+      if (latSpanKm > DEPTH_MAX_SPAN_KM || lngSpanKm > DEPTH_MAX_SPAN_KM) {
+        setTooZoomedOut(true)
+        clearOverlays()
+        return
+      }
+      setTooZoomedOut(false)
+
       const points = await fetchDepthPointsTiled({
         south: sw.getLat(), north: ne.getLat(), west: sw.getLng(), east: ne.getLng(),
       })
@@ -535,8 +535,10 @@ function OceanInfoTab() {
           map,
         })
       })
-    } catch {
-      setErrorMsg('수심 정보를 불러오지 못했어요.')
+      if (points.length === 0) setErrorMsg('이 위치에는 수심 데이터가 없어요.')
+    } catch (err) {
+      console.error('[해양정보] 수심 조회 실패:', err)
+      setErrorMsg(`수심 정보를 불러오지 못했어요. (${err?.message ?? err})`)
     } finally {
       setLoading(false)
     }
