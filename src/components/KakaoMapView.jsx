@@ -82,7 +82,7 @@ export default function KakaoMapView({ lat, lng, disableFullscreen = false }) {
           open={fullscreen}
           onClose={() => setFullscreen(false)}
           fullScreen
-          TransitionProps={{ onEntered: initFullMap }}
+          slotProps={{ transition: { onEntered: initFullMap } }}
         >
           <IconButton
             onClick={() => setFullscreen(false)}
