@@ -87,7 +87,7 @@ export default function KakaoMapView({ lat, lng, disableFullscreen = false }) {
           <IconButton
             onClick={() => setFullscreen(false)}
             sx={{
-              position: 'absolute', right: 12, top: 12, zIndex: 1,
+              position: 'absolute', right: 12, top: 12, zIndex: 10000,
               bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
             }}
           >
