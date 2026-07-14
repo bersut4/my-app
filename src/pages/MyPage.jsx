@@ -51,7 +51,7 @@ function MapSettingsDialog({ open, onClose }) {
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
-        <KakaoMapView lat={35.1028} lng={129.0403} />
+        <KakaoMapView lat={35.1028} lng={129.0403} disableFullscreen />
         <Typography variant="caption" color="text.secondary">
           선택한 방식으로 앱 내 모든 지도가 표시돼요. 이 기기에만 적용돼요.
         </Typography>
