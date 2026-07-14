@@ -274,12 +274,15 @@ export default function PostDetailPage() {
   const savePoint = async () => {
     if (!user || savedPointId) return
     setSavingPoint(true)
+    const isRoute = Array.isArray(post.location_route) && post.location_route.length > 1
     const { data } = await supabase.from('sh_points').insert({
       user_id: user.id,
       name: post.location_name || post.title,
       description: `게시글: ${post.title}`,
-      location_type: 'pin',
-      location_data: { lat: post.location_lat, lng: post.location_lng, address: post.location_name },
+      location_type: isRoute ? 'route' : 'pin',
+      location_data: isRoute
+        ? post.location_route
+        : { lat: post.location_lat, lng: post.location_lng, address: post.location_name },
       source: 'from_post',
       post_id: post.id,
     }).select('id').single()
@@ -414,7 +417,9 @@ export default function PostDetailPage() {
                     </Button>
                   )}
                 </Box>
-                <KakaoMapView lat={post.location_lat} lng={post.location_lng} />
+                {Array.isArray(post.location_route) && post.location_route.length > 1
+                  ? <KakaoMapView points={post.location_route} />
+                  : <KakaoMapView lat={post.location_lat} lng={post.location_lng} />}
               </Box>
             )}
             <Box sx={{ mt: 2 }}>

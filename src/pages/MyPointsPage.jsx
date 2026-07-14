@@ -148,9 +148,9 @@ function PointDetailDialog({ point, open, onClose, onDelete }) {
           </Box>
         )}
 
-        {lat && lng && (
-          <KakaoMapView lat={lat} lng={lng} />
-        )}
+        {isRoute
+          ? point.location_data.length > 0 && <KakaoMapView points={point.location_data} />
+          : lat && lng && <KakaoMapView lat={lat} lng={lng} />}
 
         <Divider sx={{ my: 0.5 }}>
           <Typography variant="caption" color="text.secondary">다이빙 로그</Typography>
@@ -237,11 +237,17 @@ function PointCard({ point, onDelete, onEdit, onClick }) {
           <Typography variant="body2" color="warning.main" sx={{ mt: 0.4, ml: 4 }}>⚠️ {point.hazards}</Typography>
         )}
         <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mt: 0.3 }}>📍 {coords} · {date}</Typography>
-        {!isRoute && point.location_data?.lat && point.location_data?.lng && (
-          <Box sx={{ mt: 1 }}>
-            <KakaoMapView lat={point.location_data.lat} lng={point.location_data.lng} />
-          </Box>
-        )}
+        {isRoute
+          ? point.location_data.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <KakaoMapView points={point.location_data} />
+              </Box>
+            )
+          : point.location_data?.lat && point.location_data?.lng && (
+              <Box sx={{ mt: 1 }}>
+                <KakaoMapView lat={point.location_data.lat} lng={point.location_data.lng} />
+              </Box>
+            )}
 
         {log && (
           <Box sx={{ mt: 1.5, ml: 4 }}>
@@ -326,6 +332,9 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
   const submit = async () => {
     if (!form.name.trim()) { setError('포인트 이름을 입력해주세요.'); return }
     if (!selectedLocation) { setError('지도에서 위치를 선택해주세요.'); return }
+    if (selectedLocation.mode === 'route' && selectedLocation.points.length < 2) {
+      setError('경로는 지점을 2개 이상 선택해주세요.'); return
+    }
     setLoading(true)
 
     const { data: point, error: err } = await supabase.from('sh_points').insert({
@@ -333,8 +342,10 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
       name: form.name.trim(),
       description: form.description.trim() || null,
       hazards: form.hazards.trim() || null,
-      location_type: 'pin',
-      location_data: { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name },
+      location_type: selectedLocation.mode,
+      location_data: selectedLocation.mode === 'route'
+        ? selectedLocation.points
+        : { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name },
     }).select().single()
 
     if (err) { setError('저장에 실패했어요.'); setLoading(false); return }
@@ -394,13 +405,12 @@ function AddPointDialog({ open, onClose, onAdd, userId }) {
           slotProps={{ input: { sx: { color: 'warning.main' } } }}
         />
 
-        <KakaoMapPicker
-          value={selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null}
-          onChange={setSelectedLocation}
-        />
+        <KakaoMapPicker value={selectedLocation} onChange={setSelectedLocation} />
         {selectedLocation && (
           <Typography variant="caption" color="primary.light" sx={{ mt: -1 }}>
-            📍 {selectedLocation.name}
+            {selectedLocation.mode === 'route'
+              ? `🧭 경로 ${selectedLocation.points.length}개 지점`
+              : `📍 ${selectedLocation.name}`}
           </Typography>
         )}
 
@@ -502,9 +512,11 @@ function EditPointDialog({ open, onClose, onSave, point, userId }) {
       notes: l?.notes ?? '',
     })
     setSelectedLocation(
-      point.location_data?.lat
-        ? { lat: point.location_data.lat, lng: point.location_data.lng, name: point.location_data.address ?? '' }
-        : null
+      point.location_type === 'route'
+        ? { mode: 'route', points: point.location_data }
+        : point.location_data?.lat
+          ? { mode: 'pin', lat: point.location_data.lat, lng: point.location_data.lng, name: point.location_data.address ?? '' }
+          : null
     )
     setCatchImageFile(null)
     setCatchImagePreview(l?.catch_image_url ?? null)
@@ -534,15 +546,22 @@ function EditPointDialog({ open, onClose, onSave, point, userId }) {
 
   const submit = async () => {
     if (!form.name.trim()) { setError('포인트 이름을 입력해주세요.'); return }
+    if (selectedLocation?.mode === 'route' && selectedLocation.points.length < 2) {
+      setError('경로는 지점을 2개 이상 선택해주세요.'); return
+    }
     setLoading(true)
+
+    const locationUpdate = !selectedLocation
+      ? { location_type: point.location_type, location_data: point.location_data }
+      : selectedLocation.mode === 'route'
+        ? { location_type: 'route', location_data: selectedLocation.points }
+        : { location_type: 'pin', location_data: { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name } }
 
     const { error: pointErr } = await supabase.from('sh_points').update({
       name: form.name.trim(),
       description: form.description.trim() || null,
       hazards: form.hazards.trim() || null,
-      location_data: selectedLocation
-        ? { lat: selectedLocation.lat, lng: selectedLocation.lng, address: selectedLocation.name }
-        : point.location_data,
+      ...locationUpdate,
     }).eq('id', point.id)
 
     if (pointErr) { setError('저장에 실패했어요.'); setLoading(false); return }
@@ -605,13 +624,12 @@ function EditPointDialog({ open, onClose, onSave, point, userId }) {
           slotProps={{ input: { sx: { color: 'warning.main' } } }}
         />
 
-        <KakaoMapPicker
-          value={selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null}
-          onChange={setSelectedLocation}
-        />
+        <KakaoMapPicker value={selectedLocation} onChange={setSelectedLocation} />
         {selectedLocation && (
           <Typography variant="caption" color="primary.light" sx={{ mt: -1 }}>
-            📍 {selectedLocation.name}
+            {selectedLocation.mode === 'route'
+              ? `🧭 경로 ${selectedLocation.points.length}개 지점`
+              : `📍 ${selectedLocation.name}`}
           </Typography>
         )}
 

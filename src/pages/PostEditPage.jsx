@@ -51,8 +51,10 @@ export default function PostEditPage() {
         }
 
         setForm({ title: data.title, content: data.content, rating: data.rating ?? 0 })
-        if (data.location_lat && data.location_lng) {
-          setLocation({ lat: data.location_lat, lng: data.location_lng, name: data.location_name ?? '' })
+        if (Array.isArray(data.location_route) && data.location_route.length > 1) {
+          setLocation({ mode: 'route', points: data.location_route })
+        } else if (data.location_lat && data.location_lng) {
+          setLocation({ mode: 'pin', lat: data.location_lat, lng: data.location_lng, name: data.location_name ?? '' })
         }
         setFetching(false)
       })
@@ -62,13 +64,17 @@ export default function PostEditPage() {
 
   const openMap = () => {
     setPendingLocation(location)
-    setLocationName(location?.name ?? '')
+    setLocationName(location?.mode === 'pin' ? (location.name ?? '') : '')
     setMapOpen(true)
   }
 
   const confirmLocation = () => {
     if (pendingLocation) {
-      setLocation({ ...pendingLocation, name: locationName || pendingLocation.name })
+      setLocation(
+        pendingLocation.mode === 'route'
+          ? pendingLocation
+          : { ...pendingLocation, name: locationName || pendingLocation.name }
+      )
     }
     setMapOpen(false)
   }
@@ -81,13 +87,15 @@ export default function PostEditPage() {
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
 
+    const isRoute = location?.mode === 'route'
     const { error } = await supabase.from('sh_posts').update({
       title: form.title.trim(),
       content: form.content.trim(),
       rating: form.rating || null,
-      location_lat: location?.lat ?? null,
-      location_lng: location?.lng ?? null,
-      location_name: location?.name?.trim() || null,
+      location_lat: isRoute ? location.points[0].lat : location?.lat ?? null,
+      location_lng: isRoute ? location.points[0].lng : location?.lng ?? null,
+      location_name: isRoute ? null : location?.name?.trim() || null,
+      location_route: isRoute ? location.points : null,
     }).eq('id', id)
 
     if (error) { setErrors({ general: '수정에 실패했어요.' }); setLoading(false); return }
@@ -164,7 +172,7 @@ export default function PostEditPage() {
           {location ? (
             <Chip
               icon={<LocationOnIcon />}
-              label={location.name || '위치 선택됨'}
+              label={location.mode === 'route' ? `경로 ${location.points.length}개 지점` : (location.name || '위치 선택됨')}
               onDelete={() => setLocation(null)}
               onClick={openMap}
               color="primary"
@@ -197,10 +205,10 @@ export default function PostEditPage() {
             value={pendingLocation}
             onChange={(loc) => {
               setPendingLocation(loc)
-              setLocationName(loc.name)
+              if (loc?.mode === 'pin') setLocationName(loc.name)
             }}
           />
-          {pendingLocation && (
+          {pendingLocation?.mode === 'pin' && (
             <TextField
               label="장소명"
               value={locationName}
@@ -214,7 +222,11 @@ export default function PostEditPage() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setMapOpen(false)}>취소</Button>
-          <Button variant="contained" onClick={confirmLocation} disabled={!pendingLocation}>
+          <Button
+            variant="contained"
+            onClick={confirmLocation}
+            disabled={!pendingLocation || (pendingLocation.mode === 'route' && pendingLocation.points.length < 2)}
+          >
             선택 완료
           </Button>
         </DialogActions>

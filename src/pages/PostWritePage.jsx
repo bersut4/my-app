@@ -132,13 +132,17 @@ export default function PostWritePage() {
 
   const openMap = () => {
     setPendingLocation(location)
-    setLocationName(location?.name ?? '')
+    setLocationName(location?.mode === 'pin' ? (location.name ?? '') : '')
     setMapOpen(true)
   }
 
   const confirmLocation = () => {
     if (pendingLocation) {
-      setLocation({ ...pendingLocation, name: locationName || pendingLocation.name })
+      setLocation(
+        pendingLocation.mode === 'route'
+          ? pendingLocation
+          : { ...pendingLocation, name: locationName || pendingLocation.name }
+      )
     }
     setMapOpen(false)
   }
@@ -153,14 +157,16 @@ export default function PostWritePage() {
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
 
+    const isRoute = location?.mode === 'route'
     const { data, error } = await supabase.from('sh_posts').insert({
       user_id: user.id,
       title: form.title.trim(),
       content: form.content.trim(),
       rating: form.rating || null,
-      location_lat: location?.lat ?? null,
-      location_lng: location?.lng ?? null,
-      location_name: location?.name?.trim() || null,
+      location_lat: isRoute ? location.points[0].lat : location?.lat ?? null,
+      location_lng: isRoute ? location.points[0].lng : location?.lng ?? null,
+      location_name: isRoute ? null : location?.name?.trim() || null,
+      location_route: isRoute ? location.points : null,
     }).select().single()
 
     if (error) { setErrors({ general: '게시글 작성에 실패했어요.' }); setLoading(false); return }
@@ -237,7 +243,7 @@ export default function PostWritePage() {
           {location ? (
             <Chip
               icon={<LocationOnIcon />}
-              label={location.name}
+              label={location.mode === 'route' ? `경로 ${location.points.length}개 지점` : location.name}
               onDelete={clearLocation}
               onClick={openMap}
               color="primary"
@@ -316,10 +322,10 @@ export default function PostWritePage() {
             value={pendingLocation}
             onChange={(loc) => {
               setPendingLocation(loc)
-              setLocationName(loc.name)
+              if (loc?.mode === 'pin') setLocationName(loc.name)
             }}
           />
-          {pendingLocation && (
+          {pendingLocation?.mode === 'pin' && (
             <TextField
               label="장소명"
               value={locationName}
@@ -336,7 +342,7 @@ export default function PostWritePage() {
           <Button
             variant="contained"
             onClick={confirmLocation}
-            disabled={!pendingLocation}
+            disabled={!pendingLocation || (pendingLocation.mode === 'route' && pendingLocation.points.length < 2)}
           >
             선택 완료
           </Button>

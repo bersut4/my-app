@@ -34,11 +34,18 @@ import SearchIcon from '@mui/icons-material/Search'
 import ShareIcon from '@mui/icons-material/Share'
 import CloseIcon from '@mui/icons-material/Close'
 import RoomIcon from '@mui/icons-material/Room'
+import RouteIcon from '@mui/icons-material/Route'
+import UndoIcon from '@mui/icons-material/Undo'
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
+import LayersIcon from '@mui/icons-material/Layers'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
 import { useMapType } from '../contexts/FontSizeContext'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import { fetchDepthPoints, depthColor, DEPTH_LEGEND } from '../lib/khoaDepth'
 
 const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
 const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
@@ -130,14 +137,42 @@ function LiveMapTab() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
+  const routeMarkersRef = useRef([])
+  const routePolylineRef = useRef(null)
+  const modeRef = useRef('pin')
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
+  const { user } = useAuth()
 
+  const [mode, setMode] = useState('pin')
   const [pin, setPin] = useState(null)
+  const [routePoints, setRoutePoints] = useState([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+
+  useEffect(() => { modeRef.current = mode }, [mode])
+
+  const clearRouteOverlays = () => {
+    routeMarkersRef.current.forEach(m => m.setMap(null))
+    routeMarkersRef.current = []
+    if (routePolylineRef.current) { routePolylineRef.current.setMap(null); routePolylineRef.current = null }
+  }
+
+  const redrawRoute = (points) => {
+    const { kakao } = window
+    clearRouteOverlays()
+    if (!points.length) return
+    const path = points.map(p => new kakao.maps.LatLng(p.lat, p.lng))
+    routeMarkersRef.current = path.map(pos => new kakao.maps.Marker({ position: pos, map: mapRef.current }))
+    if (path.length > 1) {
+      routePolylineRef.current = new kakao.maps.Polyline({
+        path, strokeWeight: 4, strokeColor: '#00B4D8', strokeOpacity: 0.9, strokeStyle: 'solid', map: mapRef.current,
+      })
+    }
+  }
 
   const placePin = (lat, lng, name) => {
     const { kakao } = window
@@ -146,6 +181,40 @@ function LiveMapTab() {
     markerRef.current = new kakao.maps.Marker({ position, map: mapRef.current })
     mapRef.current.panTo(position)
     setPin({ lat, lng, name })
+  }
+
+  const addRoutePoint = (lat, lng) => {
+    setRoutePoints(prev => {
+      const next = [...prev, { lat, lng }]
+      redrawRoute(next)
+      return next
+    })
+  }
+
+  const undoRoutePoint = () => {
+    setRoutePoints(prev => {
+      const next = prev.slice(0, -1)
+      redrawRoute(next)
+      return next
+    })
+  }
+
+  const clearRoute = () => {
+    setRoutePoints([])
+    clearRouteOverlays()
+  }
+
+  const switchMode = (_e, newMode) => {
+    if (!newMode || newMode === mode) return
+    setMode(newMode)
+    if (newMode === 'pin') {
+      clearRouteOverlays()
+      setRoutePoints([])
+    } else if (markerRef.current) {
+      markerRef.current.setMap(null)
+      markerRef.current = null
+      setPin(null)
+    }
   }
 
   useEffect(() => {
@@ -162,6 +231,12 @@ function LiveMapTab() {
     kakao.maps.event.addListener(map, 'click', (e) => {
       const lat = e.latLng.getLat()
       const lng = e.latLng.getLng()
+
+      if (modeRef.current === 'route') {
+        addRoutePoint(lat, lng)
+        return
+      }
+
       const geocoder = new kakao.maps.services.Geocoder()
       geocoder.coord2Address(lng, lat, (result, status) => {
         const name = status === kakao.maps.services.Status.OK && result[0]
@@ -181,6 +256,7 @@ function LiveMapTab() {
         { timeout: 3000 }
       )
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, mapType])
 
   const handleSearch = () => {
@@ -194,8 +270,15 @@ function LiveMapTab() {
   }
 
   const selectResult = (place) => {
-    placePin(parseFloat(place.y), parseFloat(place.x), place.place_name)
-    mapRef.current.setLevel(4)
+    const lat = parseFloat(place.y)
+    const lng = parseFloat(place.x)
+    if (mode === 'route') {
+      addRoutePoint(lat, lng)
+      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng))
+    } else {
+      placePin(lat, lng, place.place_name)
+      mapRef.current.setLevel(4)
+    }
     setResults([])
     setQuery(place.place_name)
   }
@@ -221,6 +304,22 @@ function LiveMapTab() {
     }
   }
 
+  const saveRouteAsPoint = async () => {
+    if (!user || routePoints.length < 2 || saving) return
+    setSaving(true)
+    const today = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+    const { error } = await supabase.from('sh_points').insert({
+      user_id: user.id,
+      name: `${today} 경로`,
+      location_type: 'route',
+      location_data: routePoints,
+    })
+    setSaving(false)
+    if (error) { setToast('저장에 실패했어요.'); return }
+    setToast('내 포인트에 저장됐어요')
+    clearRoute()
+  }
+
   if (!ready) {
     return (
       <Box sx={{ height: 'calc(100vh - 160px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -232,6 +331,11 @@ function LiveMapTab() {
   return (
     <Box sx={{ position: 'relative' }}>
       <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <ToggleButtonGroup value={mode} exclusive onChange={switchMode} size="small" fullWidth sx={{ bgcolor: 'background.paper' }}>
+          <ToggleButton value="pin">핀</ToggleButton>
+          <ToggleButton value="route">경로</ToggleButton>
+        </ToggleButtonGroup>
+
         <Paper sx={{ display: 'flex', alignItems: 'center', pl: 1.5, pr: 0.5 }}>
           <TextField
             variant="standard"
@@ -266,7 +370,7 @@ function LiveMapTab() {
 
       <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
 
-      {pin && (
+      {mode === 'pin' && pin && (
         <Paper sx={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 10, p: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <RoomIcon sx={{ color: 'primary.light', flexShrink: 0 }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -278,6 +382,29 @@ function LiveMapTab() {
         </Paper>
       )}
 
+      {mode === 'route' && routePoints.length > 0 && (
+        <Paper sx={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 10, p: 1.2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <RouteIcon sx={{ color: 'primary.light', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 90 }}>경로 {routePoints.length}개 지점</Typography>
+          <Button size="small" startIcon={<UndoIcon />} onClick={undoRoutePoint}>실행취소</Button>
+          <Button size="small" color="error" onClick={clearRoute}>초기화</Button>
+          {user ? (
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<BookmarkAddIcon />}
+              onClick={saveRouteAsPoint}
+              disabled={routePoints.length < 2 || saving}
+              sx={{ flexShrink: 0 }}
+            >
+              {saving ? '저장 중...' : '내 포인트에 저장'}
+            </Button>
+          ) : (
+            <Typography variant="caption" color="text.secondary">로그인하면 내 포인트에 저장할 수 있어요</Typography>
+          )}
+        </Paper>
+      )}
+
       <Snackbar
         open={!!toast}
         autoHideDuration={2000}
@@ -286,9 +413,14 @@ function LiveMapTab() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
 
-      {!pin && (
+      {mode === 'pin' && !pin && (
         <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', px: 1, py: 0.3, borderRadius: 1 }}>
           지도를 터치하면 핀이 찍혀요
+        </Typography>
+      )}
+      {mode === 'route' && routePoints.length === 0 && (
+        <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', px: 1, py: 0.3, borderRadius: 1 }}>
+          지도를 터치할 때마다 경로에 지점이 추가돼요
         </Typography>
       )}
     </Box>
@@ -344,6 +476,126 @@ function CctvTab() {
           </Box>
         )
       })}
+    </Box>
+  )
+}
+
+const DEPTH_ZOOM_LEVEL_LIMIT = 4
+
+function OceanInfoTab() {
+  const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  const overlaysRef = useRef([])
+  const { ready } = useKakaoLoader()
+  const { mapType } = useMapType()
+
+  const [loading, setLoading] = useState(false)
+  const [tooZoomedOut, setTooZoomedOut] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const clearOverlays = () => {
+    overlaysRef.current.forEach(o => o.setMap(null))
+    overlaysRef.current = []
+  }
+
+  const loadDepths = async () => {
+    const map = mapRef.current
+    if (!map) return
+
+    if (map.getLevel() > DEPTH_ZOOM_LEVEL_LIMIT) {
+      setTooZoomedOut(true)
+      clearOverlays()
+      return
+    }
+    setTooZoomedOut(false)
+
+    const bounds = map.getBounds()
+    const sw = bounds.getSouthWest()
+    const ne = bounds.getNorthEast()
+
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const points = await fetchDepthPoints({
+        south: sw.getLat(), north: ne.getLat(), west: sw.getLng(), east: ne.getLng(),
+      })
+      clearOverlays()
+      const { kakao } = window
+      overlaysRef.current = points.map((p) => {
+        const el = document.createElement('div')
+        el.title = `수심 약 ${p.depth.toFixed(1)}m`
+        el.style.cssText = `width:10px;height:10px;border-radius:50%;background:${depthColor(p.depth)};border:1px solid rgba(255,255,255,0.7);box-shadow:0 0 2px rgba(0,0,0,0.4);`
+        return new kakao.maps.CustomOverlay({
+          position: new kakao.maps.LatLng(p.lat, p.lng),
+          content: el,
+          map,
+        })
+      })
+    } catch {
+      setErrorMsg('수심 정보를 불러오지 못했어요.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!ready || !containerRef.current) return
+    const { kakao } = window
+    const center = new kakao.maps.LatLng(35.15, 129.15)
+    const map = new kakao.maps.Map(containerRef.current, {
+      center,
+      level: 4,
+      mapTypeId: kakao.maps.MapTypeId[mapType],
+    })
+    mapRef.current = map
+
+    kakao.maps.event.addListener(map, 'idle', loadDepths)
+    loadDepths()
+
+    return () => clearOverlays()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, mapType])
+
+  if (!ready) {
+    return (
+      <Box sx={{ height: 'calc(100vh - 160px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress size={28} />
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
+
+      <Paper sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
+        <LayersIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+        <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>수심</Typography>
+        {DEPTH_LEGEND.map(({ label, color }) => (
+          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+            <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: color, border: '1px solid rgba(0,0,0,0.2)' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{label}</Typography>
+          </Box>
+        ))}
+      </Paper>
+
+      {loading && (
+        <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
+          <CircularProgress size={16} sx={{ color: '#fff' }} />
+        </Box>
+      )}
+
+      {tooZoomedOut && !loading && (
+        <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
+          지도를 더 확대하면 수심 정보가 표시돼요
+        </Typography>
+      )}
+
+      {errorMsg && (
+        <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(211,47,47,0.85)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
+          {errorMsg}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -806,6 +1058,7 @@ export default function WeatherPage() {
           <Tab label="날씨" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </AppBar>
@@ -813,7 +1066,8 @@ export default function WeatherPage() {
       {tab === 0 && <WindyTab />}
       {tab === 1 && <LiveMapTab />}
       {tab === 2 && <CctvTab />}
-      {tab === 3 && <MulddaeTab />}
+      {tab === 3 && <OceanInfoTab />}
+      {tab === 4 && <MulddaeTab />}
     </AppLayout>
   )
 }
