@@ -480,7 +480,7 @@ function CctvTab() {
   )
 }
 
-const DEPTH_ZOOM_LEVEL_LIMIT = 4
+const DEPTH_MAX_SPAN_KM = 15
 
 function OceanInfoTab() {
   const containerRef = useRef(null)
@@ -502,16 +502,20 @@ function OceanInfoTab() {
     const map = mapRef.current
     if (!map) return
 
-    if (map.getLevel() > DEPTH_ZOOM_LEVEL_LIMIT) {
+    const bounds = map.getBounds()
+    const sw = bounds.getSouthWest()
+    const ne = bounds.getNorthEast()
+
+    // "레벨" 숫자는 화면 폭에 따라 실제로 보이는 범위가 달라지므로(PC는 화면이 넓어 같은 레벨이라도
+    // 훨씬 넓은 지역이 보임), 화면 폭이 아니라 실제 위경도 범위(km)로 확대 정도를 판단한다
+    const latSpanKm = (ne.getLat() - sw.getLat()) * 111
+    const lngSpanKm = (ne.getLng() - sw.getLng()) * 111 * Math.cos((sw.getLat() * Math.PI) / 180)
+    if (latSpanKm > DEPTH_MAX_SPAN_KM || lngSpanKm > DEPTH_MAX_SPAN_KM) {
       setTooZoomedOut(true)
       clearOverlays()
       return
     }
     setTooZoomedOut(false)
-
-    const bounds = map.getBounds()
-    const sw = bounds.getSouthWest()
-    const ne = bounds.getNorthEast()
 
     setLoading(true)
     setErrorMsg('')
@@ -544,7 +548,7 @@ function OceanInfoTab() {
     const center = new kakao.maps.LatLng(35.15, 129.15)
     const map = new kakao.maps.Map(containerRef.current, {
       center,
-      level: 4,
+      level: 3,
       mapTypeId: kakao.maps.MapTypeId[mapType],
     })
     mapRef.current = map
