@@ -24,6 +24,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import PersonIcon from '@mui/icons-material/Person'
 import LockIcon from '@mui/icons-material/Lock'
 import TextFieldsIcon from '@mui/icons-material/TextFields'
+import MapIcon from '@mui/icons-material/Map'
 import LogoutIcon from '@mui/icons-material/Logout'
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
@@ -31,9 +32,36 @@ import ArticleIcon from '@mui/icons-material/Article'
 import BlockIcon from '@mui/icons-material/Block'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
+import KakaoMapView from '../components/KakaoMapView'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { useFontSize, FONT_SIZE_LABELS } from '../contexts/FontSizeContext'
+import { useFontSize, FONT_SIZE_LABELS, useMapType, MAP_TYPE_LABELS } from '../contexts/FontSizeContext'
+
+function MapSettingsDialog({ open, onClose }) {
+  const { mapType, changeMapType } = useMapType()
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth>
+      <DialogTitle>지도 보기 설정</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <ToggleButtonGroup value={mapType} exclusive onChange={(_, v) => v && changeMapType(v)} fullWidth size="small">
+          {Object.entries(MAP_TYPE_LABELS).map(([key, label]) => (
+            <ToggleButton key={key} value={key} sx={{ fontSize: '0.75rem' }}>
+              {label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <KakaoMapView lat={35.1028} lng={129.0403} />
+        <Typography variant="caption" color="text.secondary">
+          선택한 방식으로 앱 내 모든 지도가 표시돼요. 이 기기에만 적용돼요.
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} variant="contained">닫기</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
 
 function EditProfileDialog({ open, onClose, profile, onSave }) {
   const [nickname, setNickname] = useState(profile?.display_name ?? '')
@@ -130,8 +158,10 @@ export default function MyPage() {
   const navigate = useNavigate()
   const { user, profile, signOut, refreshProfile } = useAuth()
   const { fontSize, changeFontSize } = useFontSize()
+  const { mapType } = useMapType()
   const [editOpen, setEditOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
+  const [mapSettingsOpen, setMapSettingsOpen] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
 
   const handleSignOut = async () => {
@@ -207,6 +237,12 @@ export default function MyPage() {
               <ListItemText primary="비밀번호 변경" />
               <ChevronRightIcon color="action" />
             </ListItem>
+            <Divider />
+            <ListItem button onClick={() => setMapSettingsOpen(true)}>
+              <ListItemIcon><MapIcon sx={{ color: 'primary.light' }} /></ListItemIcon>
+              <ListItemText primary="지도 보기 설정" secondary={MAP_TYPE_LABELS[mapType]} />
+              <ChevronRightIcon color="action" />
+            </ListItem>
           </List>
         </Card>
 
@@ -248,6 +284,7 @@ export default function MyPage() {
 
       <EditProfileDialog open={editOpen} onClose={() => setEditOpen(false)} profile={profile} onSave={() => refreshProfile()} />
       <ChangePasswordDialog open={pwOpen} onClose={() => setPwOpen(false)} />
+      <MapSettingsDialog open={mapSettingsOpen} onClose={() => setMapSettingsOpen(false)} />
     </AppLayout>
   )
 }

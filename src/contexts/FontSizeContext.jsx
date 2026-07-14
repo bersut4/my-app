@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 
 const FontSizeContext = createContext(null)
 const ColorModeContext = createContext(null)
+const MapTypeContext = createContext(null)
 
 export const FONT_SIZE_LABELS = {
   very_small: '매우 작게',
@@ -15,10 +16,19 @@ export const FONT_SIZE_LABELS = {
   very_large: '매우 크게',
 }
 
+export const MAP_TYPE_LABELS = {
+  ROADMAP: '지도',
+  HYBRID: '지도+스카이뷰',
+  SKYVIEW: '스카이뷰',
+}
+
 export function FontSizeProvider({ children, userId, initialFontSize = 'medium' }) {
   const [fontSize, setFontSize] = useState(initialFontSize)
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sh-color-mode') ?? 'dark'
+  )
+  const [mapType, setMapType] = useState(
+    () => localStorage.getItem('sh-map-type') ?? 'ROADMAP'
   )
 
   const theme = useMemo(() => createAppTheme(fontSize, colorMode), [fontSize, colorMode])
@@ -38,13 +48,20 @@ export function FontSizeProvider({ children, userId, initialFontSize = 'medium' 
     })
   }
 
+  const changeMapType = (type) => {
+    setMapType(type)
+    localStorage.setItem('sh-map-type', type)
+  }
+
   return (
     <FontSizeContext.Provider value={{ fontSize, changeFontSize }}>
       <ColorModeContext.Provider value={{ colorMode, toggleColorMode }}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          {children}
-        </ThemeProvider>
+        <MapTypeContext.Provider value={{ mapType, changeMapType }}>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            {children}
+          </ThemeProvider>
+        </MapTypeContext.Provider>
       </ColorModeContext.Provider>
     </FontSizeContext.Provider>
   )
@@ -52,3 +69,4 @@ export function FontSizeProvider({ children, userId, initialFontSize = 'medium' 
 
 export const useFontSize = () => useContext(FontSizeContext)
 export const useColorMode = () => useContext(ColorModeContext)
+export const useMapType = () => useContext(MapTypeContext)

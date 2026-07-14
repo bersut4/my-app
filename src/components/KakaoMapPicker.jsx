@@ -4,12 +4,14 @@ import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
+import { useMapType } from '../contexts/FontSizeContext'
 
 export default function KakaoMapPicker({ value, onChange }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
   const { ready, error } = useKakaoLoader()
+  const { mapType } = useMapType()
 
   useEffect(() => {
     if (!ready || !containerRef.current) return
@@ -18,7 +20,11 @@ export default function KakaoMapPicker({ value, onChange }) {
     const defaultCenter = new kakao.maps.LatLng(36.5, 127.8)
     const center = value ? new kakao.maps.LatLng(value.lat, value.lng) : defaultCenter
 
-    const map = new kakao.maps.Map(containerRef.current, { center, level: 9 })
+    const map = new kakao.maps.Map(containerRef.current, {
+      center,
+      level: 9,
+      mapTypeId: kakao.maps.MapTypeId[mapType],
+    })
     mapRef.current = map
 
     if (value) {
@@ -54,7 +60,7 @@ export default function KakaoMapPicker({ value, onChange }) {
         { timeout: 3000 }
       )
     }
-  }, [ready])
+  }, [ready, mapType])
 
   if (error) {
     return (

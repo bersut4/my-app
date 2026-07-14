@@ -27,6 +27,7 @@ import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
+import { useMapType } from '../contexts/FontSizeContext'
 
 const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
 const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
@@ -57,12 +58,17 @@ function CctvMap({ cameras, selectedKey, onSelect }) {
   const mapRef = useRef(null)
   const markerDataRef = useRef([])
   const { ready } = useKakaoLoader()
+  const { mapType } = useMapType()
 
   useEffect(() => {
     if (!ready || !containerRef.current) return
     const { kakao } = window
     const center = new kakao.maps.LatLng(36.0, 127.8)
-    mapRef.current = new kakao.maps.Map(containerRef.current, { center, level: 9 })
+    mapRef.current = new kakao.maps.Map(containerRef.current, {
+      center,
+      level: 9,
+      mapTypeId: kakao.maps.MapTypeId[mapType],
+    })
 
     markerDataRef.current = cameras.map((cam) => {
       const position = new kakao.maps.LatLng(cam.lat, cam.lng)
@@ -81,7 +87,7 @@ function CctvMap({ cameras, selectedKey, onSelect }) {
     // 초기 선택 카메라 인포윈도우 열기
     const init = markerDataRef.current.find(d => d.cam.key === selectedKey)
     if (init) init.iw.open(mapRef.current, init.marker)
-  }, [ready])
+  }, [ready, mapType])
 
   // 외부에서 선택 변경 시 지도 동기화
   useEffect(() => {
