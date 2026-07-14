@@ -9,29 +9,42 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
 import { useMapType } from '../contexts/FontSizeContext'
 
-function useSyncedMap(containerRef, active, lat, lng, mapType, level) {
-  useEffect(() => {
-    if (!active || !containerRef.current) return
-    const { kakao } = window
-    const position = new kakao.maps.LatLng(lat, lng)
-    const map = new kakao.maps.Map(containerRef.current, {
-      center: position,
-      level,
-      mapTypeId: kakao.maps.MapTypeId[mapType],
-    })
-    new kakao.maps.Marker({ position, map })
-  }, [active, lat, lng, mapType, level])
-}
-
 export default function KakaoMapView({ lat, lng, disableFullscreen = false }) {
   const containerRef = useRef(null)
   const fullContainerRef = useRef(null)
+  const fullMapRef = useRef(null)
   const { ready, error } = useKakaoLoader()
   const { mapType } = useMapType()
   const [fullscreen, setFullscreen] = useState(false)
 
-  useSyncedMap(containerRef, ready, lat, lng, mapType, 5)
-  useSyncedMap(fullContainerRef, ready && fullscreen, lat, lng, mapType, 4)
+  useEffect(() => {
+    if (!ready || !containerRef.current) return
+    const { kakao } = window
+    const position = new kakao.maps.LatLng(lat, lng)
+    const map = new kakao.maps.Map(containerRef.current, {
+      center: position,
+      level: 5,
+      mapTypeId: kakao.maps.MapTypeId[mapType],
+    })
+    new kakao.maps.Marker({ position, map })
+  }, [ready, lat, lng, mapType])
+
+  // 전체화면 지도는 다이얼로그 확대 애니메이션이 끝난 뒤(최종 크기가 확정된 시점) 생성해야
+  // 카카오맵이 컨테이너 크기를 0으로 잘못 읽어 회색으로 렌더링되는 문제가 없다
+  const initFullMap = () => {
+    if (!ready || !fullContainerRef.current) return
+    const { kakao } = window
+    const position = new kakao.maps.LatLng(lat, lng)
+    const map = new kakao.maps.Map(fullContainerRef.current, {
+      center: position,
+      level: 4,
+      mapTypeId: kakao.maps.MapTypeId[mapType],
+    })
+    new kakao.maps.Marker({ position, map })
+    fullMapRef.current = map
+    map.relayout()
+    map.setCenter(position)
+  }
 
   if (error) {
     return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
@@ -65,7 +78,12 @@ export default function KakaoMapView({ lat, lng, disableFullscreen = false }) {
       </Box>
 
       {!disableFullscreen && (
-        <Dialog open={fullscreen} onClose={() => setFullscreen(false)} fullScreen>
+        <Dialog
+          open={fullscreen}
+          onClose={() => setFullscreen(false)}
+          fullScreen
+          TransitionProps={{ onEntered: initFullMap }}
+        >
           <IconButton
             onClick={() => setFullscreen(false)}
             sx={{
