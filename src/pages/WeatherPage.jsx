@@ -804,7 +804,7 @@ export default function WeatherPage() {
         </Toolbar>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="날씨" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="실시간 지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
