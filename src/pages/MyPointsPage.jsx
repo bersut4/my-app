@@ -165,7 +165,7 @@ function PointDetailDialog({ point, open, onClose, onDelete }) {
       </DialogContent>
 
       <DialogActions sx={{ px: 2, pb: 2 }}>
-        <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={handleDelete}>삭제</Button>
+        {onDelete && <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={handleDelete}>삭제</Button>}
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose} variant="outlined" size="small">닫기</Button>
       </DialogActions>
@@ -654,11 +654,12 @@ function AdminPointsTab() {
   const [allPoints, setAllPoints] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedPoint, setSelectedPoint] = useState(null)
 
   useEffect(() => {
     supabase
       .from('sh_points')
-      .select('*, profiles(display_name, avatar_url)')
+      .select('*, profiles(display_name, avatar_url), sh_diving_logs(*)')
       .order('created_at', { ascending: false })
       .then(({ data }) => { setAllPoints(data ?? []); setLoading(false) })
   }, [])
@@ -712,7 +713,11 @@ function AdminPointsTab() {
                 : p.location_data.address || `${p.location_data.lat?.toFixed(4)}, ${p.location_data.lng?.toFixed(4)}`
               const date = new Date(p.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
               return (
-                <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid rgba(0,180,216,0.3)' }}>
+                <Box
+                  key={p.id}
+                  onClick={() => setSelectedPoint(p)}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid rgba(0,180,216,0.3)', cursor: 'pointer', borderRadius: 0.5, '&:hover': { bgcolor: 'rgba(0,180,216,0.06)' } }}
+                >
                   {isRoute ? <RouteIcon sx={{ fontSize: 16, color: 'primary.light' }} /> : <RoomIcon sx={{ fontSize: 16, color: 'primary.light' }} />}
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{p.name}</Typography>
@@ -732,6 +737,12 @@ function AdminPointsTab() {
           <Typography color="text.secondary">포인트가 없어요.</Typography>
         </Box>
       )}
+
+      <PointDetailDialog
+        point={selectedPoint}
+        open={!!selectedPoint}
+        onClose={() => setSelectedPoint(null)}
+      />
     </Box>
   )
 }
