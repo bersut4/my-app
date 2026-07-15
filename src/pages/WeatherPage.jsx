@@ -739,19 +739,43 @@ function getSunTimes(date) {
 }
 
 // KHOA 실시간 조위 API에서 받은 분 단위 조위 포인트에서 만조/간조(극값)를 찾아낸다.
-function extractTideEventsFromPoints(points) {
-  const events = []
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1].height, cur = points[i].height, next = points[i + 1].height
-    if (cur >= prev && cur > next) events.push({ ...points[i], type: 'high' })
-    else if (cur <= prev && cur < next) events.push({ ...points[i], type: 'low' })
+// 단순히 앞뒤 포인트만 비교하면 조차가 작은 지역(포항 등)에서 잔물결 같은 미세 잡음까지
+// 만조/간조로 잘못 인식된다. 직전 극값 대비 일정 폭(minSwingCm) 이상 방향이 꺾일 때만
+// 진짜 만조/간조로 인정하는 지그재그 방식으로 걸러낸다.
+function extractTideEventsFromPoints(points, minSwingCm = 8) {
+  if (points.length < 2) return []
+
+  const raw = []
+  let direction = 0 // 0: 미확정, 1: 상승 중, -1: 하강 중
+  let pivot = points[0]
+
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i]
+    if (direction >= 0 && p.height >= pivot.height) {
+      pivot = p
+      direction = 1
+    } else if (direction === 1 && pivot.height - p.height >= minSwingCm) {
+      raw.push({ ...pivot, type: 'high' })
+      pivot = p
+      direction = -1
+    } else if (direction <= 0 && p.height <= pivot.height) {
+      pivot = p
+      direction = -1
+    } else if (direction === -1 && p.height - pivot.height >= minSwingCm) {
+      raw.push({ ...pivot, type: 'low' })
+      pivot = p
+      direction = 1
+    }
   }
-  return events.map((ev, i) => {
+  // 마지막 극값은 하루가 끝나 데이터가 잘렸을 뿐 진짜 반전이 확인된 게 아니라서 포함하지 않는다
+  // (조차가 작은 지역에서 확정 안 된 반쪽짜리 이벤트가 만조/간조로 잘못 표시되는 걸 방지)
+
+  return raw.map((ev, i) => {
     const d = new Date(ev.time.replace(' ', 'T'))
     const hour = d.getHours() + d.getMinutes() / 60
     const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     const height = Math.round(ev.height)
-    const prevHeight = i > 0 ? Math.round(events[i - 1].height) : height
+    const prevHeight = i > 0 ? Math.round(raw[i - 1].height) : height
     return { hour, type: ev.type, height, timeStr, change: height - prevHeight }
   })
 }
