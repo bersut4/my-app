@@ -48,6 +48,16 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
+  const signInWithProvider = (provider) => {
+    return supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/my-app/weather` },
+    })
+  }
+
+  const signInWithGoogle = () => signInWithProvider('google')
+  const signInWithKakao = () => signInWithProvider('kakao')
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
@@ -55,7 +65,7 @@ export function AuthProvider({ children }) {
   const refreshProfile = () => user && fetchProfile(user.id)
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signInWithGoogle, signInWithKakao, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
