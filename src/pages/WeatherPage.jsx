@@ -45,7 +45,7 @@ import { useKakaoLoader } from '../hooks/useKakaoLoader'
 import { useMapType } from '../contexts/FontSizeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { fetchDepthPointsInBounds, depthColor, DEPTH_LEGEND } from '../lib/khoaDepth'
+import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } from '../lib/khoaDepth'
 
 const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
 const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
@@ -546,7 +546,9 @@ function OceanInfoTab() {
         const el = document.createElement('div')
         el.title = `수심 약 ${p.depth.toFixed(1)}m`
         el.textContent = p.depth < 10 ? p.depth.toFixed(1) : String(Math.round(p.depth))
-        el.style.cssText = `padding:2px 5px;border-radius:4px;background:${depthColor(p.depth)};color:#fff;font-size:11px;font-weight:700;line-height:1.2;white-space:nowrap;border:1px solid rgba(255,255,255,0.8);box-shadow:0 1px 3px rgba(0,0,0,0.5);`
+        const textColor = depthTextColor(p.depth)
+        const borderColor = textColor === '#ffffff' ? 'rgba(255,255,255,0.8)' : 'rgba(3,4,94,0.35)'
+        el.style.cssText = `padding:2px 5px;border-radius:4px;background:${depthColor(p.depth)};color:${textColor};font-size:11px;font-weight:700;line-height:1.2;white-space:nowrap;border:1px solid ${borderColor};box-shadow:0 1px 3px rgba(0,0,0,0.5);`
         return new kakao.maps.CustomOverlay({
           position: new kakao.maps.LatLng(p.lat, p.lng),
           content: el,

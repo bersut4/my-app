@@ -39,6 +39,11 @@ export function depthColor(depth) {
   return '#023E8A'
 }
 
+// 얕은 수심(<100m)은 배경색이 밝아 흰 글씨가 잘 안 보이므로 짙은 남색 글씨를 쓴다
+export function depthTextColor(depth) {
+  return depth < 100 ? '#03045E' : '#ffffff'
+}
+
 export const DEPTH_LEGEND = [
   { label: '~10m', color: '#CAF0F8' },
   { label: '~20m', color: '#90E0EF' },
