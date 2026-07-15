@@ -1,11 +1,17 @@
 // supabase.functions.invoke는 GET 쿼리스트링을 직접 지원하지 않아 fetch로 직접 호출한다.
 // (세션 조회는 이 공개 엔드포인트에 불필요하고 대기가 걸릴 수 있어 anon 키만 사용한다)
+//
+// 카카오맵 getBounds()가 주는 위경도는 소수점 15자리 이상인데, 이 좌표를 그대로 넘기면
+// KHOA API가 조용히 빈 결과를 돌려주는 걸 실측으로 확인했다(소수점 5자리까지는 정상,
+// 6자리부터 깨짐). 5자리(약 1m 정밀도)로 반올림해서 넘긴다.
+const round5 = (n) => Math.round(n * 1e5) / 1e5
+
 export async function fetchDepthPoints({ south, north, west, east }, numOfRows = 300) {
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   const baseUrl = import.meta.env.VITE_SUPABASE_URL
   if (!anonKey || !baseUrl) throw new Error('Supabase 설정이 없어요.')
 
-  const url = `${baseUrl}/functions/v1/depth-proxy?ymin=${south}&ymax=${north}&xmin=${west}&xmax=${east}&numOfRows=${numOfRows}`
+  const url = `${baseUrl}/functions/v1/depth-proxy?ymin=${round5(south)}&ymax=${round5(north)}&xmin=${round5(west)}&xmax=${round5(east)}&numOfRows=${numOfRows}`
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
   })
