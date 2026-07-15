@@ -15,6 +15,11 @@ import BlockedUsersPage from './pages/BlockedUsersPage'
 import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
 
+function ProtectedRoute({ children }) {
+  const { user } = useAuth()
+  return user ? children : <Navigate to="/login" replace />
+}
+
 function AppRoutes() {
   const { user, profile, loading } = useAuth()
 
@@ -32,13 +37,13 @@ function AppRoutes() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/posts" element={<PostsPage />} />
-          <Route path="/posts/write" element={<PostWritePage />} />
-          <Route path="/posts/:id/edit" element={<PostEditPage />} />
+          <Route path="/posts/write" element={<ProtectedRoute><PostWritePage /></ProtectedRoute>} />
+          <Route path="/posts/:id/edit" element={<ProtectedRoute><PostEditPage /></ProtectedRoute>} />
           <Route path="/posts/:id" element={<PostDetailPage />} />
-          <Route path="/mypoints" element={<MyPointsPage />} />
-          <Route path="/mypage" element={<MyPage />} />
-          <Route path="/my-posts" element={<MyPostsPage />} />
-          <Route path="/blocked-users" element={<BlockedUsersPage />} />
+          <Route path="/mypoints" element={<ProtectedRoute><MyPointsPage /></ProtectedRoute>} />
+          <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
+          <Route path="/my-posts" element={<ProtectedRoute><MyPostsPage /></ProtectedRoute>} />
+          <Route path="/blocked-users" element={<ProtectedRoute><BlockedUsersPage /></ProtectedRoute>} />
           <Route path="/" element={<Navigate to="/weather" replace />} />
           <Route path="*" element={<Navigate to="/weather" replace />} />
         </Routes>
