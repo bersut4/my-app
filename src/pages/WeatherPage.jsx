@@ -322,7 +322,7 @@ function LiveMapTab() {
 
   if (!ready) {
     return (
-      <Box sx={{ height: 'calc(100vh - 160px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: 'calc(100vh - 145px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress size={28} />
       </Box>
     )
@@ -368,7 +368,7 @@ function LiveMapTab() {
         )}
       </Box>
 
-      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
+      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 145px)' }} />
 
       {mode === 'pin' && pin && (
         <Paper sx={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 10, p: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -565,7 +565,7 @@ function OceanInfoTab() {
 
   if (!ready) {
     return (
-      <Box sx={{ height: 'calc(100vh - 160px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: 'calc(100vh - 145px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress size={28} />
       </Box>
     )
@@ -573,7 +573,7 @@ function OceanInfoTab() {
 
   return (
     <Box sx={{ position: 'relative' }}>
-      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 160px)' }} />
+      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 145px)' }} />
 
       <Paper sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
         <LayersIcon sx={{ fontSize: 16, color: 'primary.light' }} />
