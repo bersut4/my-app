@@ -554,6 +554,7 @@ function OceanInfoTab() {
       mapTypeId: kakao.maps.MapTypeId[mapType],
     })
     mapRef.current = map
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT)
 
     kakao.maps.event.addListener(map, 'idle', loadDepths)
     loadDepths()
