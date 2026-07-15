@@ -705,7 +705,7 @@ const TIDE_LOCATIONS = [
   { name: '인천', lunitidalHour: 1.5,  maxRange: 860, meanLevel: 440, lot: 126.5919, lat: 37.4763 },
   { name: '태안', lunitidalHour: 2.2,  maxRange: 600, meanLevel: 310, lot: 126.1602, lat: 36.7448 },
   { name: '대천', lunitidalHour: 2.4,  maxRange: 580, meanLevel: 300, lot: 126.4967, lat: 36.3266 },
-  { name: '변산', lunitidalHour: 2.6,  maxRange: 600, meanLevel: 310, lot: 126.4870, lat: 35.6183 },
+  { name: '변산', lunitidalHour: 2.6,  maxRange: 600, meanLevel: 310, lot: 126.45,   lat: 35.60   },
   { name: '군산', lunitidalHour: 2.5,  maxRange: 640, meanLevel: 330, lot: 126.50,   lat: 36.00   },
   { name: '목포', lunitidalHour: 3.5,  maxRange: 380, meanLevel: 200, lot: 126.36,   lat: 34.75   },
   { name: '진도', lunitidalHour: 4.5,  maxRange: 280, meanLevel: 150, lot: 126.10,   lat: 34.47   },
@@ -769,6 +769,15 @@ function extractTideEventsFromPoints(points, minSwingCm = 8) {
   }
   // 마지막 극값은 하루가 끝나 데이터가 잘렸을 뿐 진짜 반전이 확인된 게 아니라서 포함하지 않는다
   // (조차가 작은 지역에서 확정 안 된 반쪽짜리 이벤트가 만조/간조로 잘못 표시되는 걸 방지)
+
+  // 동해안처럼 하루에 한 번만 오르내리는 지역은 그 유일한 저점/고점이 하루 경계에 걸려
+  // 반전이 확정되지 않는 경우가 많다. 만조/간조 중 한쪽이 아예 없으면, 그날 실제 최고/최저
+  // 지점을 그대로 보여준다.
+  const hasHigh = raw.some(ev => ev.type === 'high')
+  const hasLow = raw.some(ev => ev.type === 'low')
+  if (!hasHigh) raw.push({ ...points.reduce((a, b) => (b.height > a.height ? b : a)), type: 'high' })
+  if (!hasLow) raw.push({ ...points.reduce((a, b) => (b.height < a.height ? b : a)), type: 'low' })
+  raw.sort((a, b) => a.time.localeCompare(b.time))
 
   return raw.map((ev, i) => {
     const d = new Date(ev.time.replace(' ', 'T'))
