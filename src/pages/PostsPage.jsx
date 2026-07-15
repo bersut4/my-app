@@ -57,7 +57,7 @@ function PostCard({ post, onClick, user, onReport, onBlock }) {
   const isOwn = user?.id === post.user_id
 
   return (
-    <Card sx={{ mb: 1.5 }}>
+    <Card>
       <Box sx={{ position: 'relative' }}>
         <CardActionArea onClick={onClick}>
           <CardContent>
@@ -155,16 +155,18 @@ function PostListTab() {
           {user && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>첫 번째 게시글을 작성해보세요!</Typography>}
         </Box>
       ) : (
-        visiblePosts.map(post => (
-          <PostCard
-            key={post.id}
-            post={post}
-            onClick={() => navigate(`/posts/${post.id}`)}
-            user={user}
-            onReport={setReportTarget}
-            onBlock={handleBlock}
-          />
-        ))
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+          {visiblePosts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              onClick={() => navigate(`/posts/${post.id}`)}
+              user={user}
+              onReport={setReportTarget}
+              onBlock={handleBlock}
+            />
+          ))}
+        </Box>
       )}
 
       {user && (

@@ -65,15 +65,11 @@ export const createAppTheme = (fontSize = 'medium', mode = 'dark') => {
           root: {
             backgroundColor: bottomNavBg,
             borderTop: bottomNavBorder,
-            borderLeft: bottomNavBorder,
-            borderRight: bottomNavBorder,
             height: 64,
             position: 'fixed',
             bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '100%',
-            maxWidth: 600, // AppLayout의 APP_MAX_WIDTH와 동일하게 맞춤
+            left: 0,
+            right: 0,
             zIndex: 1000,
           },
         },

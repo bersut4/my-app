@@ -184,7 +184,7 @@ function PointCard({ point, onDelete, onEdit, onClick }) {
 
   return (
     <Card
-      sx={{ mb: 1.5, cursor: 'pointer', transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(0,180,216,0.05)', borderColor: 'rgba(0,180,216,0.3)' } }}
+      sx={{ cursor: 'pointer', transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(0,180,216,0.05)', borderColor: 'rgba(0,180,216,0.3)' } }}
       onClick={onClick}
     >
       <CardContent>
@@ -824,7 +824,9 @@ export default function MyPointsPage() {
               <Typography color="text.secondary">{tab === 0 ? '추가한 포인트가 없어요.' : '게시글에서 저장한 포인트가 없어요.'}</Typography>
             </Box>
           ) : (
-            currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} onEdit={setEditPoint} onClick={() => setSelectedPoint(p)} />)
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+              {currentPoints.map(p => <PointCard key={p.id} point={p} onDelete={deletePoint} onEdit={setEditPoint} onClick={() => setSelectedPoint(p)} />)}
+            </Box>
           )}
           {tab === 0 && (
             <Fab color="primary" sx={{ position: 'fixed', bottom: 80, right: 20 }} onClick={() => setAddOpen(true)}>
