@@ -47,8 +47,19 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } from '../lib/khoaDepth'
 
-const KHOA_TOKEN = 'm4NiLawsC202gM5ixA7MPTYtO19KmV'
-const khoa = (key) => `https://www.khoa.go.kr/SEAFOG/${KHOA_TOKEN}/hls/khoa/${key}/s.m3u8`
+// CCTV 스트림 URL엔 KHOA 인증 토큰이 박혀 있어서, 클라이언트 JS 번들에 토큰을 그대로
+// 넣지 않고 Edge Function(cctv-stream-url)에서 카메라 key를 받아 URL을 조립해 돌려준다.
+async function fetchCctvStreamUrl(key) {
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL
+  const url = `${baseUrl}/functions/v1/cctv-stream-url?key=${encodeURIComponent(key)}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
+  })
+  if (!res.ok) return null
+  const json = await res.json()
+  return json.url ?? null
+}
 
 const CCTV_CAMERAS = [
   { key: 'Incheon',        name: '인천항 조위관측',     region: '서해', lat: 37.4539, lng: 126.6163 },
@@ -67,7 +78,7 @@ const CCTV_CAMERAS = [
   { key: 'SeaFog_Pohang',  name: '포항항 해무관측',     region: '동해', lat: 36.0183, lng: 129.3658 },
   { key: 'Mukho',          name: '묵호항 조위관측',     region: '동해', lat: 37.5505, lng: 129.1220 },
   { key: 'Moseulpo',       name: '모슬포항 조위관측',   region: '제주', lat: 33.2150, lng: 126.2516 },
-].map(cam => ({ ...cam, src: khoa(cam.key) }))
+]
 
 const REGION_COLORS = { 서해: '#0096C7', 남해: '#0077B6', 동해: '#023E8A', 제주: '#48CAE4' }
 
@@ -429,6 +440,14 @@ function LiveMapTab() {
 
 function CctvTab() {
   const [selectedCamera, setSelectedCamera] = useState(CCTV_CAMERAS[0])
+  const [streamUrl, setStreamUrl] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setStreamUrl(null)
+    fetchCctvStreamUrl(selectedCamera.key).then(url => { if (!cancelled) setStreamUrl(url) })
+    return () => { cancelled = true }
+  }, [selectedCamera.key])
 
   return (
     <Box sx={{ pb: 10 }}>
@@ -450,7 +469,7 @@ function CctvTab() {
         <Chip label="국립해양조사원" size="small" sx={{ fontSize: '0.6rem', height: 20 }} />
       </Box>
 
-      <HlsVideoPlayer key={selectedCamera.src} src={selectedCamera.src} title={selectedCamera.name} />
+      <HlsVideoPlayer key={selectedCamera.key} src={streamUrl} title={selectedCamera.name} />
 
       {/* 지역별 빠른 선택 */}
       {['서해', '남해', '동해', '제주'].map(region => {
