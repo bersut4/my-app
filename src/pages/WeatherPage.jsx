@@ -700,12 +700,19 @@ const TIDE_MSGS = {
 // maxRange: 사리 최대 조차(cm), meanLevel: 기준 평균 해수면(cm)
 const TIDE_LOCATIONS = [
   { name: '인천', lunitidalHour: 1.5,  maxRange: 860, meanLevel: 440 },
+  { name: '태안', lunitidalHour: 2.2,  maxRange: 600, meanLevel: 310 },
+  { name: '대천', lunitidalHour: 2.4,  maxRange: 580, meanLevel: 300 },
+  { name: '변산', lunitidalHour: 2.6,  maxRange: 600, meanLevel: 310 },
   { name: '군산', lunitidalHour: 2.5,  maxRange: 640, meanLevel: 330 },
   { name: '목포', lunitidalHour: 3.5,  maxRange: 380, meanLevel: 200 },
+  { name: '진도', lunitidalHour: 4.5,  maxRange: 280, meanLevel: 150 },
   { name: '여수', lunitidalHour: 6.0,  maxRange: 170, meanLevel: 90  },
+  { name: '거제', lunitidalHour: 0.8,  maxRange: 130, meanLevel: 70  },
+  { name: '마산', lunitidalHour: 0.7,  maxRange: 140, meanLevel: 75  },
   { name: '부산', lunitidalHour: 0.5,  maxRange: 115, meanLevel: 65  },
   { name: '울산', lunitidalHour: 1.0,  maxRange: 90,  meanLevel: 50  },
   { name: '포항', lunitidalHour: 1.5,  maxRange: 50,  meanLevel: 30  },
+  { name: '영덕', lunitidalHour: 1.7,  maxRange: 45,  meanLevel: 28  },
   { name: '속초', lunitidalHour: 2.0,  maxRange: 40,  meanLevel: 25  },
   { name: '제주', lunitidalHour: 5.0,  maxRange: 150, meanLevel: 80  },
 ]
@@ -890,7 +897,7 @@ function TideTimeline({ events, sunTimes, isToday }) {
 function MulddaeTab() {
   const baseDate = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const [offset, setOffset] = useState(0)
-  const [locIdx, setLocIdx] = useState(4)
+  const [locIdx, setLocIdx] = useState(10) // 부산
 
   const displayDate = useMemo(() => {
     const d = new Date(baseDate); d.setDate(d.getDate() + offset); return d
