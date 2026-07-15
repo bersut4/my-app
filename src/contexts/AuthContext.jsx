@@ -48,20 +48,15 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
-  const signInWithProvider = (provider, scopes) => {
+  const signInWithProvider = (provider) => {
     return supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/my-app/weather`,
-        ...(scopes ? { scopes } : {}),
-      },
+      options: { redirectTo: `${window.location.origin}/my-app/weather` },
     })
   }
 
   const signInWithGoogle = () => signInWithProvider('google')
-  // 카카오 개인 개발자 앱은 이메일(account_email) 권한이 기본적으로 막혀있어(비즈니스 앱
-  // 전환이 필요) 닉네임/프로필 사진만 요청한다. 이메일 없이도 가입되도록 트리거에서 처리해둠.
-  const signInWithKakao = () => signInWithProvider('kakao', 'profile_nickname profile_image')
+  const signInWithKakao = () => signInWithProvider('kakao')
 
   const signOut = async () => {
     await supabase.auth.signOut()
