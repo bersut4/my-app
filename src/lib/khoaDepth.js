@@ -14,38 +14,13 @@ export async function fetchDepthPoints({ south, north, west, east }, numOfRows =
   return json.points ?? []
 }
 
-// 수심 API는 요청 영역을 고르게 샘플링하지 않고 남서쪽 경계부터 순서대로 내려주기 때문에,
-// 영역을 격자로 나눠 칸마다 나눠 받아야 지도 전체에 고르게 점이 표시된다.
-// 단, 화면을 너무 확대해 보이는 범위가 작을 때 무조건 잘게 쪼개면 각 칸이 150m 데이터 격자보다
-// 작아져 오히려 대부분의 칸이 비어버리므로, 실제 보이는 범위(km)에 맞춰 칸 개수를 조절한다
-export async function fetchDepthPointsTiled({ south, north, west, east }) {
-  const latSpanKm = (north - south) * 111
-  const lngSpanKm = (east - west) * 111 * Math.cos((south * Math.PI) / 180)
-  const spanKm = Math.max(latSpanKm, lngSpanKm)
-
-  const targetCellKm = 2
-  const gridSize = Math.max(1, Math.min(4, Math.round(spanKm / targetCellKm)))
-  const rowsPerCell = Math.max(20, Math.round(400 / (gridSize * gridSize)))
-
-  const latStep = (north - south) / gridSize
-  const lngStep = (east - west) / gridSize
-  const cells = []
-  for (let i = 0; i < gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
-      cells.push({
-        south: south + i * latStep,
-        north: south + (i + 1) * latStep,
-        west: west + j * lngStep,
-        east: west + (j + 1) * lngStep,
-      })
-    }
-  }
-  const results = await Promise.allSettled(cells.map(cell => fetchDepthPoints(cell, rowsPerCell)))
-  const allFailed = results.every(r => r.status === 'rejected')
-  if (allFailed) {
-    throw results[0].reason instanceof Error ? results[0].reason : new Error('수심 정보를 불러오지 못했어요.')
-  }
-  return results.flatMap(r => (r.status === 'fulfilled' ? r.value : []))
+// 수심 데이터는 균일한 격자가 아니라 배가 실제로 지나간 측량 항적선(track line) 단위로 존재한다.
+// 예전엔 화면을 작은 격자로 쪼개 나눠 받았지만, 항적선 사이 간격이 격자 한 칸보다 넓은 경우가 많아
+// 대부분의 칸이 빈 채로 돌아오고 항적선 모양도 끊어져 보였다. 대신 보이는 영역 전체를 한 번에 크게
+// 조회해 API가 주는 순서(항적선을 따라 이어진 점들) 그대로 표시한다.
+// numOfRows는 300을 넘기면 API가 조용히 빈 결과를 돌려주는 상한이 있어(실측 확인) 300으로 고정한다.
+export async function fetchDepthPointsInBounds({ south, north, west, east }) {
+  return fetchDepthPoints({ south, north, west, east }, 300)
 }
 
 export function depthColor(depth) {
