@@ -698,23 +698,26 @@ const TIDE_MSGS = {
 // ── 지역별 조석 상수 (음력 기반 근사치) ──────────────────────
 // lunitidalHour: 삭(새달) 직후 1물 때 해당 지역 첫 만조 시각(h)
 // maxRange: 사리 최대 조차(cm), meanLevel: 기준 평균 해수면(cm)
+// lot/lat이 있는 지역은 KHOA TideBED 실시간 예측 API로 실제 조위를 받아온다.
+// 이 API는 관측소 근처 좌표만 지원해서(먼 지점은 오류), 좌표를 못 찾은 지역(영덕·속초)은
+// 기존 음력 근사 계산으로 대체한다.
 const TIDE_LOCATIONS = [
-  { name: '인천', lunitidalHour: 1.5,  maxRange: 860, meanLevel: 440 },
-  { name: '태안', lunitidalHour: 2.2,  maxRange: 600, meanLevel: 310 },
-  { name: '대천', lunitidalHour: 2.4,  maxRange: 580, meanLevel: 300 },
-  { name: '변산', lunitidalHour: 2.6,  maxRange: 600, meanLevel: 310 },
-  { name: '군산', lunitidalHour: 2.5,  maxRange: 640, meanLevel: 330 },
-  { name: '목포', lunitidalHour: 3.5,  maxRange: 380, meanLevel: 200 },
-  { name: '진도', lunitidalHour: 4.5,  maxRange: 280, meanLevel: 150 },
-  { name: '여수', lunitidalHour: 6.0,  maxRange: 170, meanLevel: 90  },
-  { name: '거제', lunitidalHour: 0.8,  maxRange: 130, meanLevel: 70  },
-  { name: '마산', lunitidalHour: 0.7,  maxRange: 140, meanLevel: 75  },
-  { name: '부산', lunitidalHour: 0.5,  maxRange: 115, meanLevel: 65  },
-  { name: '울산', lunitidalHour: 1.0,  maxRange: 90,  meanLevel: 50  },
-  { name: '포항', lunitidalHour: 1.5,  maxRange: 50,  meanLevel: 30  },
+  { name: '인천', lunitidalHour: 1.5,  maxRange: 860, meanLevel: 440, lot: 126.5919, lat: 37.4763 },
+  { name: '태안', lunitidalHour: 2.2,  maxRange: 600, meanLevel: 310, lot: 126.1602, lat: 36.7448 },
+  { name: '대천', lunitidalHour: 2.4,  maxRange: 580, meanLevel: 300, lot: 126.4967, lat: 36.3266 },
+  { name: '변산', lunitidalHour: 2.6,  maxRange: 600, meanLevel: 310, lot: 126.4870, lat: 35.6183 },
+  { name: '군산', lunitidalHour: 2.5,  maxRange: 640, meanLevel: 330, lot: 126.50,   lat: 36.00   },
+  { name: '목포', lunitidalHour: 3.5,  maxRange: 380, meanLevel: 200, lot: 126.36,   lat: 34.75   },
+  { name: '진도', lunitidalHour: 4.5,  maxRange: 280, meanLevel: 150, lot: 126.10,   lat: 34.47   },
+  { name: '여수', lunitidalHour: 6.0,  maxRange: 170, meanLevel: 90,  lot: 127.7623, lat: 34.7376 },
+  { name: '거제', lunitidalHour: 0.8,  maxRange: 130, meanLevel: 70,  lot: 128.70,   lat: 34.75   },
+  { name: '마산', lunitidalHour: 0.7,  maxRange: 140, meanLevel: 75,  lot: 128.53,   lat: 35.10   },
+  { name: '부산', lunitidalHour: 0.5,  maxRange: 115, meanLevel: 65,  lot: 129.0403, lat: 35.1028 },
+  { name: '울산', lunitidalHour: 1.0,  maxRange: 90,  meanLevel: 50,  lot: 129.40,   lat: 35.50   },
+  { name: '포항', lunitidalHour: 1.5,  maxRange: 50,  meanLevel: 30,  lot: 129.44,   lat: 36.00   },
   { name: '영덕', lunitidalHour: 1.7,  maxRange: 45,  meanLevel: 28  },
   { name: '속초', lunitidalHour: 2.0,  maxRange: 40,  meanLevel: 25  },
-  { name: '제주', lunitidalHour: 5.0,  maxRange: 150, meanLevel: 80  },
+  { name: '제주', lunitidalHour: 5.0,  maxRange: 150, meanLevel: 80,  lot: 126.2516, lat: 33.2150 },
 ]
 
 const LEVEL_LABELS = [
@@ -735,7 +738,38 @@ function getSunTimes(date) {
   return { sunrise: solarNoon - haHours, sunset: solarNoon + haHours }
 }
 
-// 조석 이벤트 계산 (M2 조화상수 기반 근사)
+// KHOA 실시간 조위 API에서 받은 분 단위 조위 포인트에서 만조/간조(극값)를 찾아낸다.
+function extractTideEventsFromPoints(points) {
+  const events = []
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1].height, cur = points[i].height, next = points[i + 1].height
+    if (cur >= prev && cur > next) events.push({ ...points[i], type: 'high' })
+    else if (cur <= prev && cur < next) events.push({ ...points[i], type: 'low' })
+  }
+  return events.map((ev, i) => {
+    const d = new Date(ev.time.replace(' ', 'T'))
+    const hour = d.getHours() + d.getMinutes() / 60
+    const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    const height = Math.round(ev.height)
+    const prevHeight = i > 0 ? Math.round(events[i - 1].height) : height
+    return { hour, type: ev.type, height, timeStr, change: height - prevHeight }
+  })
+}
+
+// 실제 관측 기반 조위 조회 (좌표가 있는 지역만 가능)
+async function fetchRealTideEvents(date, loc) {
+  const reqDate = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL
+  const url = `${baseUrl}/functions/v1/tide-proxy?lot=${loc.lot}&lat=${loc.lat}&reqDate=${reqDate}`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey } })
+  if (!res.ok) throw new Error('조위 정보를 불러오지 못했어요.')
+  const json = await res.json()
+  if (json.error) throw new Error(json.error)
+  return extractTideEventsFromPoints(json.points ?? [])
+}
+
+// 조석 이벤트 계산 (M2 조화상수 기반 근사, 실시간 API 미지원 지역용 폴백)
 function calcTideEvents(date, loc) {
   const mulNum = getMulddaeNum(date)
   const lunarDay = getLunarDay(date)
@@ -906,8 +940,36 @@ function MulddaeTab() {
   const num        = useMemo(() => getMulddaeNum(displayDate), [displayDate])
   const lunarDay   = useMemo(() => getLunarDay(displayDate),   [displayDate])
   const info       = MULDDAE_INFO[num]
-  const tideEvents = useMemo(() => calcTideEvents(displayDate, TIDE_LOCATIONS[locIdx]), [displayDate, locIdx])
   const sunTimes   = useMemo(() => getSunTimes(displayDate),   [displayDate])
+
+  const loc = TIDE_LOCATIONS[locIdx]
+  const [tideEvents, setTideEvents] = useState(() => calcTideEvents(displayDate, loc))
+  const [isRealData, setIsRealData] = useState(false)
+  const [tideLoading, setTideLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!loc.lot) {
+      setTideEvents(calcTideEvents(displayDate, loc))
+      setIsRealData(false)
+      return
+    }
+    setTideLoading(true)
+    fetchRealTideEvents(displayDate, loc)
+      .then(events => {
+        if (cancelled) return
+        if (events.length === 0) throw new Error('empty')
+        setTideEvents(events)
+        setIsRealData(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTideEvents(calcTideEvents(displayDate, loc))
+        setIsRealData(false)
+      })
+      .finally(() => { if (!cancelled) setTideLoading(false) })
+    return () => { cancelled = true }
+  }, [displayDate, loc])
 
   const dateStr = displayDate.toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
@@ -1025,10 +1087,19 @@ function MulddaeTab() {
       </Box>
 
       {/* ── 조석 타임라인 ── */}
-      <TideTimeline events={tideEvents} sunTimes={sunTimes} isToday={offset === 0} />
+      <Box sx={{ position: 'relative' }}>
+        <TideTimeline events={tideEvents} sunTimes={sunTimes} isToday={offset === 0} />
+        {tideLoading && (
+          <Box sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.6 }}>
+            <CircularProgress size={14} sx={{ color: '#fff' }} />
+          </Box>
+        )}
+      </Box>
 
       <Typography variant="caption" color="text.disabled" sx={{ px: 2, display: 'block', mt: 0.5, pb: 2 }}>
-        ※ 음력 기반 예상 조석입니다. 정확한 정보는 국립해양조사원을 확인하세요.
+        {isRealData
+          ? '※ 국립해양조사원 실시간 예측 조위 기준입니다.'
+          : '※ 이 지역은 실시간 데이터가 없어 음력 기반 예상 조석으로 표시돼요.'}
       </Typography>
     </Box>
   )
