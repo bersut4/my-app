@@ -94,59 +94,22 @@ function PointDetailDialog({ point, open, onClose, onDelete }) {
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        <TextField
-          label="포인트 이름"
-          value={point.name}
-          disabled
-          fullWidth
-        />
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {isRoute ? <RouteIcon sx={{ fontSize: 16, color: 'primary.light' }} /> : <RoomIcon sx={{ fontSize: 16, color: 'primary.light' }} />}
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{point.name}</Typography>
+        </Box>
 
-        <TextField
-          label="메모"
-          value={point.description ?? ''}
-          disabled
-          fullWidth
-          multiline
-          rows={2}
-        />
+        {point.description && <Typography variant="body2" color="text.secondary">{point.description}</Typography>}
 
-        {point.hazards && (
-          <TextField
-            label="위험요소"
-            value={point.hazards}
-            disabled
-            fullWidth
-            multiline
-            rows={2}
-            slotProps={{ input: { sx: { color: 'warning.main' } } }}
-          />
-        )}
+        {point.hazards && <Typography variant="body2" color="warning.main">⚠️ {point.hazards}</Typography>}
 
-        <FormControl fullWidth disabled>
-          <InputLabel>기록 방식</InputLabel>
-          <Select value={point.location_type} label="기록 방식">
-            <MenuItem value="pin">핀 (단일 지점)</MenuItem>
-            <MenuItem value="route">경로 (시작 지점 입력)</MenuItem>
-          </Select>
-        </FormControl>
-
-        {!isRoute ? (
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField label="위도" value={point.location_data.lat ?? ''} disabled fullWidth />
-            <TextField label="경도" value={point.location_data.lng ?? ''} disabled fullWidth />
-          </Box>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {point.location_data.map((coord, idx) => (
-              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Typography variant="caption" color="primary.light" sx={{ minWidth: 24, fontWeight: 700 }}>#{idx + 1}</Typography>
-                <TextField label="위도" value={coord.lat ?? ''} disabled fullWidth size="small" />
-                <TextField label="경도" value={coord.lng ?? ''} disabled fullWidth size="small" />
-              </Box>
-            ))}
-          </Box>
-        )}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Chip label={isRoute ? '경로' : '핀'} size="small" variant="outlined" />
+          {isRoute
+            ? <Chip label={`지점 ${point.location_data.length}개`} size="small" variant="outlined" />
+            : <Chip label={`${point.location_data.lat?.toFixed(5)}, ${point.location_data.lng?.toFixed(5)}`} size="small" variant="outlined" />}
+        </Box>
 
         {isRoute
           ? point.location_data.length > 0 && <KakaoMapView points={point.location_data} />
