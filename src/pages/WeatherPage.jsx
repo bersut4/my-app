@@ -525,14 +525,34 @@ function OceanInfoTab() {
       })
       clearOverlays()
       const { kakao } = window
-      overlaysRef.current = points.map((p) => {
+
+      // 지점 간격이 데이터 격자(150m) 단위라 화면을 확대하지 않으면 숫자 라벨이 서로 겹치므로,
+      // 화면 픽셀 기준 최소 간격을 두고 이미 채택된 라벨과 너무 가까운 지점은 건너뛴다
+      const containerEl = containerRef.current
+      const degPerPxX = (ne.getLng() - sw.getLng()) / containerEl.clientWidth
+      const degPerPxY = (ne.getLat() - sw.getLat()) / containerEl.clientHeight
+      const MIN_LABEL_GAP_PX = 34
+      const shownPoints = []
+      for (const p of points) {
+        const tooClose = shownPoints.some((q) => {
+          const dx = (p.lng - q.lng) / degPerPxX
+          const dy = (p.lat - q.lat) / degPerPxY
+          return Math.hypot(dx, dy) < MIN_LABEL_GAP_PX
+        })
+        if (!tooClose) shownPoints.push(p)
+      }
+
+      overlaysRef.current = shownPoints.map((p) => {
         const el = document.createElement('div')
         el.title = `수심 약 ${p.depth.toFixed(1)}m`
-        el.style.cssText = `width:10px;height:10px;border-radius:50%;background:${depthColor(p.depth)};border:1px solid rgba(255,255,255,0.7);box-shadow:0 0 2px rgba(0,0,0,0.4);`
+        el.textContent = p.depth < 10 ? p.depth.toFixed(1) : String(Math.round(p.depth))
+        el.style.cssText = `padding:2px 5px;border-radius:4px;background:${depthColor(p.depth)};color:#fff;font-size:11px;font-weight:700;line-height:1.2;white-space:nowrap;border:1px solid rgba(255,255,255,0.8);box-shadow:0 1px 3px rgba(0,0,0,0.5);`
         return new kakao.maps.CustomOverlay({
           position: new kakao.maps.LatLng(p.lat, p.lng),
           content: el,
           map,
+          xAnchor: 0.5,
+          yAnchor: 0.5,
         })
       })
       if (points.length === 0) setErrorMsg('이 위치에는 수심 데이터가 없어요.')
@@ -580,7 +600,7 @@ function OceanInfoTab() {
         <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>수심</Typography>
         {DEPTH_LEGEND.map(({ label, color }) => (
           <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-            <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: color, border: '1px solid rgba(0,0,0,0.2)' }} />
+            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: color, border: '1px solid rgba(0,0,0,0.2)' }} />
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{label}</Typography>
           </Box>
         ))}
