@@ -842,10 +842,10 @@ function OceanInfoTab() {
     const { kakao } = window
     farmOverlaysRef.current = inBounds.map((farm) => {
       const status = licenseStatus(farm)
-      const color = FISHERY_CATEGORY_COLOR[farm.c] ?? '#888'
+      const color = status === 'valid' ? '#22C55E' : status === 'expired' ? '#DC2626' : '#9CA3AF'
       const el = document.createElement('div')
-      el.title = `${farm.n ?? ''} · ${farm.c}${status === 'expired' ? ' (면허만료)' : ''}`
-      el.style.cssText = `width:11px;height:11px;border-radius:3px;background:${color};opacity:${status === 'expired' ? 0.35 : 0.95};border:1px solid rgba(255,255,255,0.85);box-shadow:0 1px 2px rgba(0,0,0,0.5);cursor:pointer;`
+      el.title = `${farm.n ?? ''} · ${farm.c} · ${status === 'valid' ? '면허 유효' : status === 'expired' ? '면허 만료' : '기간 정보없음'}`
+      el.style.cssText = `width:11px;height:11px;border-radius:3px;background:${color};border:1px solid rgba(255,255,255,0.85);box-shadow:0 1px 2px rgba(0,0,0,0.5);cursor:pointer;`
       el.addEventListener('click', () => setSelectedFarm(farm))
       return new kakao.maps.CustomOverlay({
         position: new kakao.maps.LatLng(farm.y, farm.x),
@@ -1048,6 +1048,25 @@ function OceanInfoTab() {
           </Box>
         ))}
       </Paper>
+
+      {showFarms && (
+        <Paper sx={{ position: 'absolute', top: 52, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
+          <SetMealIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>어장 면허</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#22C55E' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>유효</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#DC2626' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>만료</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#9CA3AF' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>기간정보없음</Typography>
+          </Box>
+        </Paper>
+      )}
 
       <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.6 }}>
         <Chip
