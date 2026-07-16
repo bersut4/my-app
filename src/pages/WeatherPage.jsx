@@ -1116,7 +1116,7 @@ function OceanInfoTab() {
         </Paper>
       )}
 
-      <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.6 }}>
+      <Box sx={{ position: 'absolute', top: 8, right: 46, zIndex: 10, display: 'flex', gap: 0.6 }}>
         <FullscreenToggleButton fullscreenRef={fullscreenRef} />
         <Chip
           icon={<PhishingIcon sx={{ fontSize: 16 }} />}
@@ -1148,7 +1148,7 @@ function OceanInfoTab() {
       </Box>
 
       {loading && (
-        <Box sx={{ position: 'absolute', top: 8, right: 330, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
+        <Box sx={{ position: 'absolute', top: 8, right: 368, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
           <CircularProgress size={16} sx={{ color: '#fff' }} />
         </Box>
       )}
@@ -1738,7 +1738,9 @@ function WindyTab() {
           allowFullScreen
           title="Windy 실시간 기상 지도"
         />
-        <FullscreenToggleButton fullscreenRef={fullscreenRef} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }} />
+        {/* Windy 자체 UI가 상단(줌/전체화면 아이콘)과 하단(재생 타임라인)을 차지해서,
+            겹치지 않는 우측 중간 높이에 배치한다 */}
+        <FullscreenToggleButton fullscreenRef={fullscreenRef} sx={{ position: 'absolute', bottom: 90, right: 8, zIndex: 10 }} />
       </Box>
     </Box>
   )
