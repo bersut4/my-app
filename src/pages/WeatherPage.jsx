@@ -191,6 +191,7 @@ function LiveMapTab() {
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
   const { user } = useAuth()
+  const { isFullscreen } = useFullscreen(fullscreenRef)
 
   const [mode, setMode] = useState('pin')
   const [pin, setPin] = useState(null)
@@ -368,6 +369,17 @@ function LiveMapTab() {
     clearRoute()
   }
 
+  // 카카오맵은 컨테이너 크기가 바뀌어도 스스로 다시 그리지 않아서(전체화면 진입/종료 시
+  // 검은 여백이 남음), relayout으로 캔버스 크기를 맞추고 중심을 다시 설정해준다.
+  useEffect(() => {
+    if (!mapRef.current) return
+    const id = requestAnimationFrame(() => {
+      mapRef.current.relayout()
+      mapRef.current.setCenter(mapRef.current.getCenter())
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isFullscreen])
+
   if (!ready) {
     return (
       <Box sx={{ height: 'calc(100vh - 209px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -419,7 +431,7 @@ function LiveMapTab() {
         )}
       </Box>
 
-      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 209px)' }} />
+      <Box ref={containerRef} sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 209px)' }} />
 
       {mode === 'pin' && pin && (
         <Paper sx={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 10, p: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -776,6 +788,7 @@ function OceanInfoTab() {
   const groundOverlaysRef = useRef([])
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
+  const { isFullscreen } = useFullscreen(fullscreenRef)
 
   const [loading, setLoading] = useState(false)
   const [tooZoomedOut, setTooZoomedOut] = useState(true)
@@ -1050,6 +1063,17 @@ function OceanInfoTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fishingGrounds, showGrounds])
 
+  // 카카오맵은 컨테이너 크기가 바뀌어도 스스로 다시 그리지 않아서(전체화면 진입/종료 시
+  // 검은 여백이 남음), relayout으로 캔버스 크기를 맞추고 중심을 다시 설정해준다.
+  useEffect(() => {
+    if (!mapRef.current) return
+    const id = requestAnimationFrame(() => {
+      mapRef.current.relayout()
+      mapRef.current.setCenter(mapRef.current.getCenter())
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isFullscreen])
+
   if (!ready) {
     return (
       <Box sx={{ height: 'calc(100vh - 209px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1060,7 +1084,7 @@ function OceanInfoTab() {
 
   return (
     <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
-      <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 209px)' }} />
+      <Box ref={containerRef} sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 209px)' }} />
 
       <Paper sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
         <LayersIcon sx={{ fontSize: 16, color: 'primary.light' }} />
@@ -1671,6 +1695,7 @@ const WINDY_LOCATIONS = [
 
 function WindyTab() {
   const fullscreenRef = useRef(null)
+  const { isFullscreen } = useFullscreen(fullscreenRef)
   const [windyIdx, setWindyIdx] = useState(0)
   const [overlay, setOverlay] = useState('waves')
   const location = WINDY_LOCATIONS[windyIdx]
@@ -1709,7 +1734,7 @@ function WindyTab() {
           key={src}
           component="iframe"
           src={src}
-          sx={{ width: '100%', height: 'calc(100vh - 240px)', border: 'none', display: 'block' }}
+          sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 240px)', border: 'none', display: 'block' }}
           allowFullScreen
           title="Windy 실시간 기상 지도"
         />
