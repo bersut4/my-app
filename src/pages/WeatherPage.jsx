@@ -48,6 +48,9 @@ import PhoneIcon from '@mui/icons-material/Phone'
 import PaidIcon from '@mui/icons-material/Paid'
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import QueryStatsIcon from '@mui/icons-material/QueryStats'
+import SetMealIcon from '@mui/icons-material/SetMeal'
+import EventBusyIcon from '@mui/icons-material/EventBusy'
+import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
@@ -59,6 +62,7 @@ import { supabase } from '../lib/supabase'
 import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } from '../lib/khoaDepth'
 import { fetchFishingGrounds } from '../lib/fishingGrounds'
 import { fetchFishingIndex, summarizeFishingIndex, FISHING_INDEX_COLOR } from '../lib/fishingIndex'
+import { fetchFisheryLicenses, filterLicensesInBounds, licenseStatus, daysUntilExpiry, FISHERY_CATEGORY_COLOR } from '../lib/fisheryLicenses'
 
 // CCTV 스트림 URL엔 KHOA 인증 토큰이 박혀 있어서, 클라이언트 JS 번들에 토큰을 그대로
 // 넣지 않고 Edge Function(cctv-stream-url)에서 카메라 key를 받아 URL을 조립해 돌려준다.
@@ -653,6 +657,76 @@ function FishingIndexDialog({ location, open, onClose }) {
   )
 }
 
+function FisheryLicenseDialog({ farm, open, onClose }) {
+  if (!farm) return null
+  const status = licenseStatus(farm)
+  const dday = daysUntilExpiry(farm)
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      sx={{ '& .MuiBackdrop-root': { bgcolor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' } }}
+    >
+      <DialogTitle sx={{ pr: 6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SetMealIcon sx={{ color: 'primary.light' }} />
+          {farm.n || '어장정보'}
+        </Box>
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 8, top: 8 }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
+        <Typography variant="body2" color="text.secondary">{farm.a}</Typography>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Chip label={farm.c} size="small" sx={{ bgcolor: FISHERY_CATEGORY_COLOR[farm.c] ?? 'grey.700', color: '#fff' }} />
+          {farm.k && <Chip label={farm.k} size="small" variant="outlined" />}
+          {farm.m && <Chip label={farm.m} size="small" variant="outlined" />}
+          {farm.ar != null && <Chip label={`면적 ${farm.ar}ha`} size="small" variant="outlined" />}
+        </Box>
+
+        {farm.f && <Typography variant="body2">🦪 양식물: {farm.f}</Typography>}
+
+        {(farm.y && farm.x) && <KakaoMapViewLite lat={farm.y} lng={farm.x} />}
+
+        <Divider sx={{ my: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">면허 기간</Typography>
+        </Divider>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+          <Chip
+            icon={status === 'valid' ? <EventAvailableIcon sx={{ fontSize: 16 }} /> : <EventBusyIcon sx={{ fontSize: 16 }} />}
+            label={status === 'valid' ? '유효' : status === 'expired' ? '만료' : '정보없음'}
+            size="small"
+            color={status === 'valid' ? 'success' : status === 'expired' ? 'error' : 'default'}
+          />
+          <Typography variant="body2">
+            {farm.s ?? '?'} ~ {farm.e ?? '?'}
+          </Typography>
+          {status === 'valid' && dday != null && (
+            <Typography variant="caption" color="text.secondary">(만료까지 {dday}일)</Typography>
+          )}
+          {status === 'expired' && dday != null && (
+            <Typography variant="caption" color="error.main">({-dday}일 전 만료)</Typography>
+          )}
+        </Box>
+
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+          공공데이터포털 해양수산부 국립해양조사원_어장정보
+        </Typography>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button onClick={onClose} variant="outlined" size="small">닫기</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // 다이얼로그 안에서 위치만 간단히 보여주는 축소판 지도(핀 하나, 조작 불필요)
 function KakaoMapViewLite({ lat, lng }) {
   const ref = useRef(null)
@@ -694,6 +768,14 @@ function OceanInfoTab() {
   const [selectedIndexLocation, setSelectedIndexLocation] = useState(null)
   const indexOverlaysRef = useRef([])
 
+  const [showFarms, setShowFarms] = useState(false)
+  const [selectedFarm, setSelectedFarm] = useState(null)
+  const [farmsTooZoomedOut, setFarmsTooZoomedOut] = useState(false)
+  const farmOverlaysRef = useRef([])
+  const farmsAllRef = useRef([])
+  const showFarmsRef = useRef(false)
+  useEffect(() => { showFarmsRef.current = showFarms }, [showFarms])
+
   useEffect(() => { fishingGroundsRef.current = fishingGrounds }, [fishingGrounds])
   useEffect(() => { showGroundsRef.current = showGrounds }, [showGrounds])
 
@@ -726,6 +808,53 @@ function OceanInfoTab() {
   const clearIndexOverlays = () => {
     indexOverlaysRef.current.forEach(o => o.setMap(null))
     indexOverlaysRef.current = []
+  }
+
+  const clearFarmOverlays = () => {
+    farmOverlaysRef.current.forEach(o => o.setMap(null))
+    farmOverlaysRef.current = []
+  }
+
+  // 전국 어장정보가 14,858건이라 한 번에 다 그리지 못하고, 화면 범위 안에 있는 것만(최대 400건)
+  // 지도가 충분히 확대됐을 때만 그린다(수심 정보와 같은 방식).
+  const FARM_MAX_SPAN_KM = 60
+  const FARM_MAX_COUNT = 400
+
+  const loadFarms = () => {
+    const map = mapRef.current
+    if (!map) return
+    if (!showFarmsRef.current) { setFarmsTooZoomedOut(false); clearFarmOverlays(); return }
+
+    const bounds = map.getBounds()
+    const sw = bounds.getSouthWest()
+    const ne = bounds.getNorthEast()
+    const latSpanKm = (ne.getLat() - sw.getLat()) * 111
+    const lngSpanKm = (ne.getLng() - sw.getLng()) * 111 * Math.cos((sw.getLat() * Math.PI) / 180)
+    if (latSpanKm > FARM_MAX_SPAN_KM || lngSpanKm > FARM_MAX_SPAN_KM) {
+      setFarmsTooZoomedOut(true)
+      clearFarmOverlays()
+      return
+    }
+    setFarmsTooZoomedOut(false)
+
+    const inBounds = filterLicensesInBounds(farmsAllRef.current, bounds).slice(0, FARM_MAX_COUNT)
+    clearFarmOverlays()
+    const { kakao } = window
+    farmOverlaysRef.current = inBounds.map((farm) => {
+      const status = licenseStatus(farm)
+      const color = FISHERY_CATEGORY_COLOR[farm.c] ?? '#888'
+      const el = document.createElement('div')
+      el.title = `${farm.n ?? ''} · ${farm.c}${status === 'expired' ? ' (면허만료)' : ''}`
+      el.style.cssText = `width:11px;height:11px;border-radius:3px;background:${color};opacity:${status === 'expired' ? 0.35 : 0.95};border:1px solid rgba(255,255,255,0.85);box-shadow:0 1px 2px rgba(0,0,0,0.5);cursor:pointer;`
+      el.addEventListener('click', () => setSelectedFarm(farm))
+      return new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(farm.y, farm.x),
+        content: el,
+        map,
+        yAnchor: 0.5,
+        zIndex: 3,
+      })
+    })
   }
 
   const loadDepths = async () => {
@@ -810,10 +939,12 @@ function OceanInfoTab() {
 
     kakao.maps.event.addListener(map, 'idle', loadDepths)
     kakao.maps.event.addListener(map, 'idle', checkGroundsInView)
+    kakao.maps.event.addListener(map, 'idle', loadFarms)
     loadDepths()
     checkGroundsInView()
+    loadFarms()
 
-    return () => clearOverlays()
+    return () => { clearOverlays(); clearFarmOverlays() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, mapType])
 
@@ -828,6 +959,18 @@ function OceanInfoTab() {
       .then((items) => setFishingIndexLocations(summarizeFishingIndex(items)))
       .catch((err) => console.error('[해양정보] 낚시지수 조회 실패:', err))
   }, [])
+
+  useEffect(() => {
+    fetchFisheryLicenses()
+      .then((records) => { farmsAllRef.current = records; loadFarms() })
+      .catch((err) => console.error('[해양정보] 어장정보(면허) 조회 실패:', err))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    loadFarms()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, showFarms])
 
   useEffect(() => {
     const map = mapRef.current
@@ -925,10 +1068,19 @@ function OceanInfoTab() {
           onClick={() => setShowFishingIndex(v => !v)}
           sx={{ bgcolor: showFishingIndex ? undefined : 'rgba(0,0,0,0.55)', color: showFishingIndex ? undefined : '#fff' }}
         />
+        <Chip
+          icon={<SetMealIcon sx={{ fontSize: 16 }} />}
+          label={`양식장/어장 ${showFarms ? 'ON' : 'OFF'}`}
+          size="small"
+          color={showFarms ? 'primary' : 'default'}
+          variant={showFarms ? 'filled' : 'outlined'}
+          onClick={() => setShowFarms(v => !v)}
+          sx={{ bgcolor: showFarms ? undefined : 'rgba(0,0,0,0.55)', color: showFarms ? undefined : '#fff' }}
+        />
       </Box>
 
       {loading && (
-        <Box sx={{ position: 'absolute', top: 8, right: 230, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
+        <Box sx={{ position: 'absolute', top: 8, right: 330, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
           <CircularProgress size={16} sx={{ color: '#fff' }} />
         </Box>
       )}
@@ -939,11 +1091,18 @@ function OceanInfoTab() {
         </Typography>
       )}
 
-      {groundsOutOfView && (
-        <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
-          🎣 이 화면엔 어장정보가 없어요 · 지도를 축소해 보세요
-        </Typography>
-      )}
+      <Box sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 9, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+        {groundsOutOfView && (
+          <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
+            🎣 이 화면엔 어장정보가 없어요 · 지도를 축소해 보세요
+          </Typography>
+        )}
+        {showFarms && farmsTooZoomedOut && (
+          <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
+            🦪 지도를 더 확대하면 양식장/어장정보가 표시돼요
+          </Typography>
+        )}
+      </Box>
 
       {errorMsg && (
         <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(211,47,47,0.85)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
@@ -953,6 +1112,7 @@ function OceanInfoTab() {
 
       <FishingGroundDialog ground={selectedGround} open={!!selectedGround} onClose={() => setSelectedGround(null)} />
       <FishingIndexDialog location={selectedIndexLocation} open={!!selectedIndexLocation} onClose={() => setSelectedIndexLocation(null)} />
+      <FisheryLicenseDialog farm={selectedFarm} open={!!selectedFarm} onClose={() => setSelectedFarm(null)} />
     </Box>
   )
 }
