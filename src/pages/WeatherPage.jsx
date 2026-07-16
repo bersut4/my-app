@@ -51,11 +51,14 @@ import QueryStatsIcon from '@mui/icons-material/QueryStats'
 import SetMealIcon from '@mui/icons-material/SetMeal'
 import EventBusyIcon from '@mui/icons-material/EventBusy'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+import FullscreenIcon from '@mui/icons-material/Fullscreen'
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
 import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useFullscreen } from '../hooks/useFullscreen'
 import { useMapType } from '../contexts/FontSizeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -98,6 +101,22 @@ const CCTV_CAMERAS = [
 ]
 
 const REGION_COLORS = { 서해: '#0096C7', 남해: '#0077B6', 동해: '#023E8A', 제주: '#48CAE4' }
+
+// 지도 영역을 전체화면으로 보기 위한 버튼(Fullscreen API). fullscreenRef가 가리키는
+// 요소 자체가 전체화면으로 전환되므로, 지도와 그 위 오버레이 컨트롤을 함께 감싼 Box를 넘긴다.
+function FullscreenToggleButton({ fullscreenRef, sx }) {
+  const { isFullscreen, toggle } = useFullscreen(fullscreenRef)
+  return (
+    <IconButton
+      onClick={toggle}
+      size="small"
+      title={isFullscreen ? '전체화면 종료' : '전체화면으로 보기'}
+      sx={{ bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' }, ...sx }}
+    >
+      {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+    </IconButton>
+  )
+}
 
 function CctvMap({ cameras, selectedKey, onSelect }) {
   const containerRef = useRef(null)
@@ -163,6 +182,7 @@ function buildKakaoMapShareUrl({ lat, lng, name }) {
 
 function LiveMapTab() {
   const containerRef = useRef(null)
+  const fullscreenRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
   const routeMarkersRef = useRef([])
@@ -357,12 +377,15 @@ function LiveMapTab() {
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
       <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <ToggleButtonGroup value={mode} exclusive onChange={switchMode} size="small" fullWidth sx={{ bgcolor: 'background.paper' }}>
-          <ToggleButton value="pin">핀</ToggleButton>
-          <ToggleButton value="route">경로</ToggleButton>
-        </ToggleButtonGroup>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <ToggleButtonGroup value={mode} exclusive onChange={switchMode} size="small" fullWidth sx={{ flex: 1, bgcolor: 'background.paper' }}>
+            <ToggleButton value="pin">핀</ToggleButton>
+            <ToggleButton value="route">경로</ToggleButton>
+          </ToggleButtonGroup>
+          <FullscreenToggleButton fullscreenRef={fullscreenRef} />
+        </Box>
 
         <Paper sx={{ display: 'flex', alignItems: 'center', pl: 1.5, pr: 0.5 }}>
           <TextField
@@ -747,6 +770,7 @@ function KakaoMapViewLite({ lat, lng }) {
 
 function OceanInfoTab() {
   const containerRef = useRef(null)
+  const fullscreenRef = useRef(null)
   const mapRef = useRef(null)
   const overlaysRef = useRef([])
   const groundOverlaysRef = useRef([])
@@ -1035,7 +1059,7 @@ function OceanInfoTab() {
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
       <Box ref={containerRef} sx={{ width: '100%', height: 'calc(100vh - 209px)' }} />
 
       <Paper sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
@@ -1069,6 +1093,7 @@ function OceanInfoTab() {
       )}
 
       <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.6 }}>
+        <FullscreenToggleButton fullscreenRef={fullscreenRef} />
         <Chip
           icon={<PhishingIcon sx={{ fontSize: 16 }} />}
           label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
@@ -1645,6 +1670,7 @@ const WINDY_LOCATIONS = [
 ]
 
 function WindyTab() {
+  const fullscreenRef = useRef(null)
   const [windyIdx, setWindyIdx] = useState(0)
   const [overlay, setOverlay] = useState('waves')
   const location = WINDY_LOCATIONS[windyIdx]
@@ -1678,14 +1704,17 @@ function WindyTab() {
           ))}
         </ToggleButtonGroup>
       </Box>
-      <Box
-        key={src}
-        component="iframe"
-        src={src}
-        sx={{ width: '100%', height: 'calc(100vh - 240px)', border: 'none', display: 'block' }}
-        allowFullScreen
-        title="Windy 실시간 기상 지도"
-      />
+      <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
+        <Box
+          key={src}
+          component="iframe"
+          src={src}
+          sx={{ width: '100%', height: 'calc(100vh - 240px)', border: 'none', display: 'block' }}
+          allowFullScreen
+          title="Windy 실시간 기상 지도"
+        />
+        <FullscreenToggleButton fullscreenRef={fullscreenRef} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }} />
+      </Box>
     </Box>
   )
 }
