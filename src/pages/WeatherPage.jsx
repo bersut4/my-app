@@ -625,6 +625,28 @@ function OceanInfoTab() {
   const [showGrounds, setShowGrounds] = useState(true)
   const [fishingGrounds, setFishingGrounds] = useState([])
   const [selectedGround, setSelectedGround] = useState(null)
+  const [groundsOutOfView, setGroundsOutOfView] = useState(false)
+  const fishingGroundsRef = useRef([])
+  const showGroundsRef = useRef(true)
+
+  useEffect(() => { fishingGroundsRef.current = fishingGrounds }, [fishingGrounds])
+  useEffect(() => { showGroundsRef.current = showGrounds }, [showGrounds])
+
+  // 어장정보는 전국 163곳뿐이라 현재 화면 안에 하나도 없을 수 있다(특히 기본 위치인
+  // 해운대 근처는 확대된 상태라 흔함). 그때는 축소해야 보인다는 걸 안내한다.
+  const checkGroundsInView = () => {
+    const map = mapRef.current
+    if (!map) return
+    const grounds = fishingGroundsRef.current
+    if (!showGroundsRef.current || grounds.length === 0) {
+      setGroundsOutOfView(false)
+      return
+    }
+    const { kakao } = window
+    const bounds = map.getBounds()
+    const inView = grounds.some(g => bounds.contain(new kakao.maps.LatLng(g.lat, g.lng)))
+    setGroundsOutOfView(!inView)
+  }
 
   const clearOverlays = () => {
     overlaysRef.current.forEach(o => o.setMap(null))
@@ -717,7 +739,9 @@ function OceanInfoTab() {
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT)
 
     kakao.maps.event.addListener(map, 'idle', loadDepths)
+    kakao.maps.event.addListener(map, 'idle', checkGroundsInView)
     loadDepths()
+    checkGroundsInView()
 
     return () => clearOverlays()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -750,6 +774,8 @@ function OceanInfoTab() {
         zIndex: 5,
       })
     })
+
+    checkGroundsInView()
 
     return () => clearGroundOverlays()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -797,6 +823,12 @@ function OceanInfoTab() {
       {tooZoomedOut && !loading && (
         <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
           지도를 더 확대하면 수심 정보가 표시돼요
+        </Typography>
+      )}
+
+      {groundsOutOfView && (
+        <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
+          🎣 이 화면엔 어장정보가 없어요 · 지도를 축소해 보세요
         </Typography>
       )}
 
