@@ -25,6 +25,11 @@ import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Snackbar from '@mui/material/Snackbar'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Divider from '@mui/material/Divider'
 import WavesIcon from '@mui/icons-material/Waves'
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt'
 import MapIcon from '@mui/icons-material/Map'
@@ -38,14 +43,20 @@ import RouteIcon from '@mui/icons-material/Route'
 import UndoIcon from '@mui/icons-material/Undo'
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
 import LayersIcon from '@mui/icons-material/Layers'
+import PhishingIcon from '@mui/icons-material/Phishing'
+import PhoneIcon from '@mui/icons-material/Phone'
+import PaidIcon from '@mui/icons-material/Paid'
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
 import { useKakaoLoader } from '../hooks/useKakaoLoader'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useMapType } from '../contexts/FontSizeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } from '../lib/khoaDepth'
+import { fetchFishingGrounds } from '../lib/fishingGrounds'
 
 // CCTV 스트림 URL엔 KHOA 인증 토큰이 박혀 있어서, 클라이언트 JS 번들에 토큰을 그대로
 // 넣지 않고 Edge Function(cctv-stream-url)에서 카메라 key를 받아 URL을 조립해 돌려준다.
@@ -501,20 +512,128 @@ function CctvTab() {
 
 const DEPTH_MAX_SPAN_KM = 15
 
+// 낚시터 유형별 유료/공용 문구는 원본 데이터 그대로(항목 없으면 표시하지 않음)
+function FishingGroundDialog({ ground, open, onClose }) {
+  if (!ground) return null
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      sx={{ '& .MuiBackdrop-root': { bgcolor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' } }}
+    >
+      <DialogTitle sx={{ pr: 6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PhishingIcon sx={{ color: 'primary.light' }} />
+          {ground.name}
+        </Box>
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 8, top: 8 }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          {ground.road_address || ground.jibun_address}
+        </Typography>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {ground.species && <Chip label={`🐟 ${ground.species}`} size="small" variant="outlined" />}
+          {ground.facility_type && <Chip label={ground.facility_type} size="small" variant="outlined" />}
+          {ground.max_capacity && <Chip label={`최대 ${ground.max_capacity}명`} size="small" variant="outlined" />}
+        </Box>
+
+        {(ground.lat && ground.lng) && <KakaoMapViewLite lat={ground.lat} lng={ground.lng} />}
+
+        {ground.fee_info && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.6 }}>
+            <PaidIcon sx={{ fontSize: 16, color: 'primary.light', mt: 0.2 }} />
+            <Typography variant="body2">{ground.fee_info}</Typography>
+          </Box>
+        )}
+
+        {ground.safety_facilities && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.6 }}>
+            <HealthAndSafetyIcon sx={{ fontSize: 16, color: 'warning.main', mt: 0.2 }} />
+            <Typography variant="body2" color="text.secondary">{ground.safety_facilities}</Typography>
+          </Box>
+        )}
+
+        {ground.amenity_facilities && (
+          <Typography variant="body2" color="text.secondary">편의시설: {ground.amenity_facilities}</Typography>
+        )}
+
+        {ground.nearby_attractions && (
+          <Typography variant="body2" color="text.secondary">주변: {ground.nearby_attractions}</Typography>
+        )}
+
+        {(ground.phone || ground.manager_org) && (
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+              <PhoneIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+              <Typography variant="body2">
+                {ground.phone || ground.manager_phone || '전화번호 정보 없음'}
+                {ground.manager_org && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.8 }}>({ground.manager_org})</Typography>}
+              </Typography>
+            </Box>
+          </>
+        )}
+
+        <Typography variant="caption" color="text.secondary">
+          공공데이터포털 전국낚시터정보표준데이터{ground.data_ref_date ? ` · 기준일 ${ground.data_ref_date}` : ''}
+        </Typography>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button onClick={onClose} variant="outlined" size="small">닫기</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+// 다이얼로그 안에서 위치만 간단히 보여주는 축소판 지도(핀 하나, 조작 불필요)
+function KakaoMapViewLite({ lat, lng }) {
+  const ref = useRef(null)
+  const { ready } = useKakaoLoader()
+  const { mapType } = useMapType()
+
+  useEffect(() => {
+    if (!ready || !ref.current) return
+    const { kakao } = window
+    const center = new kakao.maps.LatLng(lat, lng)
+    const map = new kakao.maps.Map(ref.current, { center, level: 4, mapTypeId: kakao.maps.MapTypeId[mapType] })
+    new kakao.maps.Marker({ position: center, map })
+  }, [ready, mapType, lat, lng])
+
+  if (!ready) return null
+  return <Box ref={ref} sx={{ width: '100%', height: 180, borderRadius: 1, overflow: 'hidden' }} />
+}
+
 function OceanInfoTab() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlaysRef = useRef([])
+  const groundOverlaysRef = useRef([])
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
 
   const [loading, setLoading] = useState(false)
   const [tooZoomedOut, setTooZoomedOut] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
+  const [showGrounds, setShowGrounds] = useState(true)
+  const [fishingGrounds, setFishingGrounds] = useState([])
+  const [selectedGround, setSelectedGround] = useState(null)
 
   const clearOverlays = () => {
     overlaysRef.current.forEach(o => o.setMap(null))
     overlaysRef.current = []
+  }
+
+  const clearGroundOverlays = () => {
+    groundOverlaysRef.current.forEach(o => o.setMap(null))
+    groundOverlaysRef.current = []
   }
 
   const loadDepths = async () => {
@@ -604,6 +723,38 @@ function OceanInfoTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, mapType])
 
+  useEffect(() => {
+    fetchFishingGrounds().then(setFishingGrounds).catch((err) => {
+      console.error('[해양정보] 어장정보 조회 실패:', err)
+    })
+  }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    clearGroundOverlays()
+    if (!showGrounds) return
+    const { kakao } = window
+
+    groundOverlaysRef.current = fishingGrounds.map((ground) => {
+      const el = document.createElement('div')
+      el.textContent = '🎣'
+      el.title = ground.name
+      el.style.cssText = 'font-size:20px;line-height:1;cursor:pointer;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));'
+      el.addEventListener('click', () => setSelectedGround(ground))
+      return new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(ground.lat, ground.lng),
+        content: el,
+        map,
+        yAnchor: 0.9,
+        zIndex: 5,
+      })
+    })
+
+    return () => clearGroundOverlays()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, fishingGrounds, showGrounds])
+
   if (!ready) {
     return (
       <Box sx={{ height: 'calc(100vh - 209px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -627,8 +778,18 @@ function OceanInfoTab() {
         ))}
       </Paper>
 
+      <Chip
+        icon={<PhishingIcon sx={{ fontSize: 16 }} />}
+        label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
+        size="small"
+        color={showGrounds ? 'primary' : 'default'}
+        variant={showGrounds ? 'filled' : 'outlined'}
+        onClick={() => setShowGrounds(v => !v)}
+        sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: showGrounds ? undefined : 'rgba(0,0,0,0.55)', color: showGrounds ? undefined : '#fff' }}
+      />
+
       {loading && (
-        <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
+        <Box sx={{ position: 'absolute', top: 8, right: 130, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
           <CircularProgress size={16} sx={{ color: '#fff' }} />
         </Box>
       )}
@@ -644,6 +805,8 @@ function OceanInfoTab() {
           {errorMsg}
         </Typography>
       )}
+
+      <FishingGroundDialog ground={selectedGround} open={!!selectedGround} onClose={() => setSelectedGround(null)} />
     </Box>
   )
 }
@@ -1204,6 +1367,7 @@ function WindyTab() {
 
 export default function WeatherPage() {
   const [tab, setTab] = useState(0)
+  const isDesktop = useIsDesktop()
 
   return (
     <AppLayout>
@@ -1213,7 +1377,7 @@ export default function WeatherPage() {
           <Typography variant="h3" sx={{ flexGrow: 1 }}>Sea Hunt</Typography>
           <ThemeToggleButton />
         </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isDesktop ? 'standard' : 'fullWidth'} TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
           <Tab label="날씨" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
