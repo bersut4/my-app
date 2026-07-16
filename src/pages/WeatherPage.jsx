@@ -47,6 +47,7 @@ import PhishingIcon from '@mui/icons-material/Phishing'
 import PhoneIcon from '@mui/icons-material/Phone'
 import PaidIcon from '@mui/icons-material/Paid'
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
+import QueryStatsIcon from '@mui/icons-material/QueryStats'
 import AppLayout from '../components/layout/AppLayout'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import HlsVideoPlayer from '../components/HlsVideoPlayer'
@@ -57,6 +58,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } from '../lib/khoaDepth'
 import { fetchFishingGrounds } from '../lib/fishingGrounds'
+import { fetchFishingIndex, summarizeFishingIndex, FISHING_INDEX_COLOR } from '../lib/fishingIndex'
 
 // CCTV 스트림 URL엔 KHOA 인증 토큰이 박혀 있어서, 클라이언트 JS 번들에 토큰을 그대로
 // 넣지 않고 Edge Function(cctv-stream-url)에서 카메라 key를 받아 URL을 조립해 돌려준다.
@@ -593,6 +595,64 @@ function FishingGroundDialog({ ground, open, onClose }) {
   )
 }
 
+function FishingIndexDialog({ location, open, onClose }) {
+  if (!location) return null
+  const slots = Object.entries(location.slots)
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      sx={{ '& .MuiBackdrop-root': { bgcolor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' } }}
+    >
+      <DialogTitle sx={{ pr: 6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <QueryStatsIcon sx={{ color: 'primary.light' }} />
+          {location.name}
+        </Box>
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 8, top: 8 }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.2, pt: 1 }}>
+        <Typography variant="caption" color="text.secondary">{location.date} 국립해양조사원 바다낚시지수</Typography>
+
+        {slots.map(([noon, slot]) => (
+          <Box key={noon}>
+            <Divider sx={{ my: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">{noon}</Typography>
+            </Divider>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.8 }}>
+              <Chip label={`물때 ${slot.tide}`} size="small" variant="outlined" />
+              <Chip label={`파고 ${slot.waveMin}~${slot.waveMax}m`} size="small" variant="outlined" />
+              <Chip label={`수온 ${slot.waterTempMin}~${slot.waterTempMax}℃`} size="small" variant="outlined" />
+              <Chip label={`풍속 ${slot.windMin}~${slot.windMax}m/s`} size="small" variant="outlined" />
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+              {slot.fishes.map(({ fish, index }) => (
+                <Box key={fish} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">{fish}</Typography>
+                  <Chip
+                    label={index}
+                    size="small"
+                    sx={{ bgcolor: FISHING_INDEX_COLOR[index] ?? 'grey.700', color: '#fff', fontWeight: 600 }}
+                  />
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        ))}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button onClick={onClose} variant="outlined" size="small">닫기</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // 다이얼로그 안에서 위치만 간단히 보여주는 축소판 지도(핀 하나, 조작 불필요)
 function KakaoMapViewLite({ lat, lng }) {
   const ref = useRef(null)
@@ -629,6 +689,11 @@ function OceanInfoTab() {
   const fishingGroundsRef = useRef([])
   const showGroundsRef = useRef(true)
 
+  const [showFishingIndex, setShowFishingIndex] = useState(false)
+  const [fishingIndexLocations, setFishingIndexLocations] = useState([])
+  const [selectedIndexLocation, setSelectedIndexLocation] = useState(null)
+  const indexOverlaysRef = useRef([])
+
   useEffect(() => { fishingGroundsRef.current = fishingGrounds }, [fishingGrounds])
   useEffect(() => { showGroundsRef.current = showGrounds }, [showGrounds])
 
@@ -656,6 +721,11 @@ function OceanInfoTab() {
   const clearGroundOverlays = () => {
     groundOverlaysRef.current.forEach(o => o.setMap(null))
     groundOverlaysRef.current = []
+  }
+
+  const clearIndexOverlays = () => {
+    indexOverlaysRef.current.forEach(o => o.setMap(null))
+    indexOverlaysRef.current = []
   }
 
   const loadDepths = async () => {
@@ -754,6 +824,38 @@ function OceanInfoTab() {
   }, [])
 
   useEffect(() => {
+    fetchFishingIndex()
+      .then((items) => setFishingIndexLocations(summarizeFishingIndex(items)))
+      .catch((err) => console.error('[해양정보] 낚시지수 조회 실패:', err))
+  }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    clearIndexOverlays()
+    if (!showFishingIndex) return
+    const { kakao } = window
+
+    indexOverlaysRef.current = fishingIndexLocations.map((loc) => {
+      const el = document.createElement('div')
+      const color = FISHING_INDEX_COLOR[loc.representativeIndex] ?? '#888'
+      el.title = `${loc.name} · ${loc.representativeIndex ?? '정보없음'}`
+      el.style.cssText = `width:14px;height:14px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.9);box-shadow:0 1px 3px rgba(0,0,0,0.6);cursor:pointer;`
+      el.addEventListener('click', () => setSelectedIndexLocation(loc))
+      return new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(loc.lat, loc.lng),
+        content: el,
+        map,
+        yAnchor: 0.5,
+        zIndex: 4,
+      })
+    })
+
+    return () => clearIndexOverlays()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, fishingIndexLocations, showFishingIndex])
+
+  useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
     clearGroundOverlays()
@@ -804,18 +906,29 @@ function OceanInfoTab() {
         ))}
       </Paper>
 
-      <Chip
-        icon={<PhishingIcon sx={{ fontSize: 16 }} />}
-        label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
-        size="small"
-        color={showGrounds ? 'primary' : 'default'}
-        variant={showGrounds ? 'filled' : 'outlined'}
-        onClick={() => setShowGrounds(v => !v)}
-        sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: showGrounds ? undefined : 'rgba(0,0,0,0.55)', color: showGrounds ? undefined : '#fff' }}
-      />
+      <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 0.6 }}>
+        <Chip
+          icon={<PhishingIcon sx={{ fontSize: 16 }} />}
+          label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
+          size="small"
+          color={showGrounds ? 'primary' : 'default'}
+          variant={showGrounds ? 'filled' : 'outlined'}
+          onClick={() => setShowGrounds(v => !v)}
+          sx={{ bgcolor: showGrounds ? undefined : 'rgba(0,0,0,0.55)', color: showGrounds ? undefined : '#fff' }}
+        />
+        <Chip
+          icon={<QueryStatsIcon sx={{ fontSize: 16 }} />}
+          label={`낚시지수 ${showFishingIndex ? 'ON' : 'OFF'}`}
+          size="small"
+          color={showFishingIndex ? 'primary' : 'default'}
+          variant={showFishingIndex ? 'filled' : 'outlined'}
+          onClick={() => setShowFishingIndex(v => !v)}
+          sx={{ bgcolor: showFishingIndex ? undefined : 'rgba(0,0,0,0.55)', color: showFishingIndex ? undefined : '#fff' }}
+        />
+      </Box>
 
       {loading && (
-        <Box sx={{ position: 'absolute', top: 8, right: 130, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
+        <Box sx={{ position: 'absolute', top: 8, right: 230, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
           <CircularProgress size={16} sx={{ color: '#fff' }} />
         </Box>
       )}
@@ -839,6 +952,7 @@ function OceanInfoTab() {
       )}
 
       <FishingGroundDialog ground={selectedGround} open={!!selectedGround} onClose={() => setSelectedGround(null)} />
+      <FishingIndexDialog location={selectedIndexLocation} open={!!selectedIndexLocation} onClose={() => setSelectedIndexLocation(null)} />
     </Box>
   )
 }
