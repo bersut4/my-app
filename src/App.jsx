@@ -1,19 +1,29 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { FontSizeProvider } from './contexts/FontSizeContext'
-import LoginPage from './pages/LoginPage'
-import SignupPage from './pages/SignupPage'
-import WeatherPage from './pages/WeatherPage'
-import PostsPage from './pages/PostsPage'
-import PostDetailPage from './pages/PostDetailPage'
-import PostWritePage from './pages/PostWritePage'
-import PostEditPage from './pages/PostEditPage'
-import MyPointsPage from './pages/MyPointsPage'
-import MyPage from './pages/MyPage'
-import MyPostsPage from './pages/MyPostsPage'
-import BlockedUsersPage from './pages/BlockedUsersPage'
 import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
+
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const SignupPage = lazy(() => import('./pages/SignupPage'))
+const WeatherPage = lazy(() => import('./pages/WeatherPage'))
+const PostsPage = lazy(() => import('./pages/PostsPage'))
+const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
+const PostWritePage = lazy(() => import('./pages/PostWritePage'))
+const PostEditPage = lazy(() => import('./pages/PostEditPage'))
+const MyPointsPage = lazy(() => import('./pages/MyPointsPage'))
+const MyPage = lazy(() => import('./pages/MyPage'))
+const MyPostsPage = lazy(() => import('./pages/MyPostsPage'))
+const BlockedUsersPage = lazy(() => import('./pages/BlockedUsersPage'))
+
+function PageLoading() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', bgcolor: 'background.default' }}>
+      <CircularProgress />
+    </Box>
+  )
+}
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
@@ -23,30 +33,28 @@ function ProtectedRoute({ children }) {
 function AppRoutes() {
   const { user, profile, loading } = useAuth()
 
-  if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', bgcolor: 'background.default' }}>
-      <CircularProgress />
-    </Box>
-  )
+  if (loading) return <PageLoading />
 
   return (
     <FontSizeProvider userId={user?.id} initialFontSize={profile?.font_size ?? 'medium'}>
       <BrowserRouter basename="/my-app">
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/weather" element={<WeatherPage />} />
-          <Route path="/posts" element={<PostsPage />} />
-          <Route path="/posts/write" element={<ProtectedRoute><PostWritePage /></ProtectedRoute>} />
-          <Route path="/posts/:id/edit" element={<ProtectedRoute><PostEditPage /></ProtectedRoute>} />
-          <Route path="/posts/:id" element={<PostDetailPage />} />
-          <Route path="/mypoints" element={<ProtectedRoute><MyPointsPage /></ProtectedRoute>} />
-          <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
-          <Route path="/my-posts" element={<ProtectedRoute><MyPostsPage /></ProtectedRoute>} />
-          <Route path="/blocked-users" element={<ProtectedRoute><BlockedUsersPage /></ProtectedRoute>} />
-          <Route path="/" element={<Navigate to="/weather" replace />} />
-          <Route path="*" element={<Navigate to="/weather" replace />} />
-        </Routes>
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/weather" element={<WeatherPage />} />
+            <Route path="/posts" element={<PostsPage />} />
+            <Route path="/posts/write" element={<ProtectedRoute><PostWritePage /></ProtectedRoute>} />
+            <Route path="/posts/:id/edit" element={<ProtectedRoute><PostEditPage /></ProtectedRoute>} />
+            <Route path="/posts/:id" element={<PostDetailPage />} />
+            <Route path="/mypoints" element={<ProtectedRoute><MyPointsPage /></ProtectedRoute>} />
+            <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
+            <Route path="/my-posts" element={<ProtectedRoute><MyPostsPage /></ProtectedRoute>} />
+            <Route path="/blocked-users" element={<ProtectedRoute><BlockedUsersPage /></ProtectedRoute>} />
+            <Route path="/" element={<Navigate to="/weather" replace />} />
+            <Route path="*" element={<Navigate to="/weather" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </FontSizeProvider>
   )
