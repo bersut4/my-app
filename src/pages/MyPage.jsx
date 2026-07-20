@@ -31,6 +31,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ArticleIcon from '@mui/icons-material/Article'
 import BlockIcon from '@mui/icons-material/Block'
 import AppLayout from '../components/layout/AppLayout'
+import PageHeaderTitle from '../components/layout/PageHeaderTitle'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import KakaoMapView from '../components/KakaoMapView'
 import { supabase } from '../lib/supabase'
@@ -191,8 +192,7 @@ export default function MyPage() {
     <AppLayout>
       <AppBar position="sticky">
         <Toolbar>
-          <PersonIcon sx={{ mr: 1, color: 'primary.light' }} />
-          <Typography variant="h3" sx={{ flexGrow: 1 }}>마이페이지</Typography>
+          <PageHeaderTitle icon={<PersonIcon sx={{ color: 'primary.light' }} />} title="마이페이지" />
           <ThemeToggleButton />
         </Toolbar>
       </AppBar>

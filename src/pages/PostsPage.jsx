@@ -34,6 +34,7 @@ import FlagIcon from '@mui/icons-material/Flag'
 import BlockIcon from '@mui/icons-material/Block'
 import CheckIcon from '@mui/icons-material/Check'
 import AppLayout from '../components/layout/AppLayout'
+import PageHeaderTitle from '../components/layout/PageHeaderTitle'
 import ChatSection from '../components/chat/ChatSection'
 import AdminBadge from '../components/AdminBadge'
 import ThemeToggleButton from '../components/ThemeToggleButton'
@@ -212,8 +213,7 @@ export default function PostsPage() {
     <AppLayout>
       <AppBar position="sticky">
         <Toolbar>
-          <ArticleIcon sx={{ mr: 1, color: 'primary.light' }} />
-          <Typography variant="h3" sx={{ flexGrow: 1 }}>게시물</Typography>
+          <PageHeaderTitle icon={<ArticleIcon sx={{ color: 'primary.light' }} />} title="게시물" />
           <ThemeToggleButton />
         </Toolbar>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>

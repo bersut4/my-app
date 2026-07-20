@@ -36,6 +36,7 @@ import Avatar from '@mui/material/Avatar'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import AppLayout from '../components/layout/AppLayout'
+import PageHeaderTitle from '../components/layout/PageHeaderTitle'
 import KakaoMapPicker from '../components/KakaoMapPicker'
 import KakaoMapView from '../components/KakaoMapView'
 import ThemeToggleButton from '../components/ThemeToggleButton'
@@ -795,8 +796,7 @@ export default function MyPointsPage() {
     <AppLayout>
       <AppBar position="sticky">
         <Toolbar>
-          <RoomIcon sx={{ mr: 1, color: 'primary.light' }} />
-          <Typography variant="h3" sx={{ flexGrow: 1 }}>내 포인트</Typography>
+          <PageHeaderTitle icon={<RoomIcon sx={{ color: 'primary.light' }} />} title="내 포인트" />
           {!isAdmin && (
             <>
               <LockIcon sx={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', mr: 0.5 }} />
