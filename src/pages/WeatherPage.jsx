@@ -972,7 +972,9 @@ function OceanInfoTab() {
       mapTypeId: kakao.maps.MapTypeId[mapType],
     })
     mapRef.current = map
-    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT)
+    // 확대/축소 컨트롤을 왼쪽 중간에 둬서 우측 상단을 전체화면 버튼 자리로 비워둔다
+    // (지도/해양정보 탭 모두 전체화면 버튼을 top:8, right:8에 통일하기 위함)
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.LEFT)
 
     kakao.maps.event.addListener(map, 'idle', loadDepths)
     kakao.maps.event.addListener(map, 'idle', checkGroundsInView)
@@ -1116,7 +1118,7 @@ function OceanInfoTab() {
         </Paper>
       )}
 
-      <Box sx={{ position: 'absolute', top: 8, right: 46, zIndex: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.6, maxWidth: 'calc(100% - 54px)' }}>
+      <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.6, maxWidth: 'calc(100% - 16px)' }}>
         <FullscreenToggleButton fullscreenRef={fullscreenRef} />
         <Chip
           icon={<PhishingIcon sx={{ fontSize: 16 }} />}
