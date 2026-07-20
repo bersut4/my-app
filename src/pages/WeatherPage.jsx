@@ -1116,7 +1116,7 @@ function OceanInfoTab() {
         </Paper>
       )}
 
-      <Box sx={{ position: 'absolute', top: 8, right: 46, zIndex: 10, display: 'flex', gap: 0.6 }}>
+      <Box sx={{ position: 'absolute', top: 8, right: 46, zIndex: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.6, maxWidth: 'calc(100% - 54px)' }}>
         <FullscreenToggleButton fullscreenRef={fullscreenRef} />
         <Chip
           icon={<PhishingIcon sx={{ fontSize: 16 }} />}
