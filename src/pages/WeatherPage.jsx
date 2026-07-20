@@ -1094,6 +1094,7 @@ function OceanInfoTab() {
         <Paper sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
           <LayersIcon sx={{ fontSize: 16, color: 'primary.light' }} />
           <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>수심</Typography>
+          {loading && <CircularProgress size={12} sx={{ color: 'primary.light', mr: 0.5 }} />}
           {DEPTH_LEGEND.map(({ label, color }) => (
             <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
               <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: color, border: '1px solid rgba(0,0,0,0.2)' }} />
@@ -1152,12 +1153,6 @@ function OceanInfoTab() {
           />
         </Box>
       </Box>
-
-      {loading && (
-        <Box sx={{ position: 'absolute', top: 8, right: 368, zIndex: 10, bgcolor: 'rgba(0,0,0,0.55)', borderRadius: 1, p: 0.8, display: 'flex' }}>
-          <CircularProgress size={16} sx={{ color: '#fff' }} />
-        </Box>
-      )}
 
       {tooZoomedOut && !loading && (
         <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 9, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
