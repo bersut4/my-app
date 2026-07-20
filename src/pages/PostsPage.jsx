@@ -208,10 +208,14 @@ function PostListTab() {
 
 export default function PostsPage() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const { user, profile } = useAuth()
   const isDesktop = useIsDesktop()
-  const tab = Math.max(0, POSTS_SECTIONS.findIndex(s => s.path === pathname))
+  // 데스크탑은 SideNav 아코디언이 URL로 하위 탭을 고르므로 경로에서 그대로 읽어오면 되지만,
+  // 모바일은 원래처럼(라우팅 없이) 즉시 로컬 상태로만 탭을 바꾼다. 탭 전환마다 URL이 바뀌면
+  // 라우트가 리렌더되면서 모바일 UI가 미묘하게 달라 보이는 문제가 있었다.
+  const [mobileTab, setMobileTab] = useState(() => Math.max(0, POSTS_SECTIONS.findIndex(s => s.path === pathname)))
+  const routeTab = Math.max(0, POSTS_SECTIONS.findIndex(s => s.path === pathname))
+  const tab = isDesktop ? routeTab : mobileTab
 
   return (
     <AppLayout>
@@ -222,7 +226,7 @@ export default function PostsPage() {
             <PageHeaderTitle icon={<ArticleIcon sx={{ color: 'primary.light' }} />} title="게시물" />
             <ThemeToggleButton />
           </Toolbar>
-          <Tabs value={tab} onChange={(_, v) => navigate(POSTS_SECTIONS[v].path)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+          <Tabs value={tab} onChange={(_, v) => setMobileTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
             {POSTS_SECTIONS.map(({ path, label, icon: Icon }) => (
               <Tab key={path} label={label} icon={<Icon sx={{ fontSize: 18 }} />} iconPosition="start" />
             ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -752,7 +752,6 @@ function AdminPointsTab() {
 
 export default function MyPointsPage() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const { user, profile } = useAuth()
   const [points, setPoints] = useState([])
   const [fromPostPoints, setFromPostPoints] = useState([])
@@ -762,6 +761,14 @@ export default function MyPointsPage() {
   const [selectedPoint, setSelectedPoint] = useState(null)
   const isAdmin = profile?.is_admin
   const isDesktop = useIsDesktop()
+  const sections = isAdmin ? [...MYPOINTS_SECTIONS, MYPOINTS_ADMIN_SECTION] : MYPOINTS_SECTIONS
+  // 데스크탑은 SideNav 아코디언이 URL로 하위 탭을 고르므로 경로에서 그대로 읽어오면 되지만,
+  // 모바일은 원래처럼(라우팅 없이) 즉시 로컬 상태로만 탭을 바꾼다. 탭 전환마다 URL이 바뀌면
+  // 라우트가 리렌더되면서 모바일 UI가 미묘하게 달라 보이는 문제가 있었다.
+  const [mobileTab, setMobileTab] = useState(() => Math.max(0, sections.findIndex(s => s.path === pathname)))
+  const routeTab = Math.max(0, sections.findIndex(s => s.path === pathname))
+  const tab = isDesktop ? routeTab : mobileTab
+  const adminTabIndex = sections.length - 1
 
   useEffect(() => {
     if (!user) return
@@ -793,9 +800,6 @@ export default function MyPointsPage() {
     </AppLayout>
   )
 
-  const sections = isAdmin ? [...MYPOINTS_SECTIONS, MYPOINTS_ADMIN_SECTION] : MYPOINTS_SECTIONS
-  const tab = Math.max(0, sections.findIndex(s => s.path === pathname))
-  const adminTabIndex = sections.length - 1
   const currentPoints = tab === 0 ? points : fromPostPoints
 
   return (
@@ -813,7 +817,7 @@ export default function MyPointsPage() {
             )}
             <ThemeToggleButton />
           </Toolbar>
-          <Tabs value={tab} onChange={(_, v) => navigate(sections[v].path)} variant={isAdmin ? 'scrollable' : 'fullWidth'} scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+          <Tabs value={tab} onChange={(_, v) => setMobileTab(v)} variant={isAdmin ? 'scrollable' : 'fullWidth'} scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
             {sections.map(({ path, label, icon: Icon }, i) => (
               <Tab
                 key={path}

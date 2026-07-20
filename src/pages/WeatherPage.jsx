@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -1736,9 +1736,13 @@ function WindyTab() {
 
 export default function WeatherPage() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const isDesktop = useIsDesktop()
-  const tab = Math.max(0, WEATHER_SECTIONS.findIndex(s => s.path === pathname))
+  // 데스크탑은 SideNav 아코디언이 URL로 하위 탭을 고르므로 경로에서 그대로 읽어오면 되지만,
+  // 모바일은 원래처럼(라우팅 없이) 즉시 로컬 상태로만 탭을 바꾼다. 탭 전환마다 URL이 바뀌면
+  // 라우트가 리렌더되면서 모바일 UI가 미묘하게 달라 보이는 문제가 있었다.
+  const [mobileTab, setMobileTab] = useState(() => Math.max(0, WEATHER_SECTIONS.findIndex(s => s.path === pathname)))
+  const routeTab = Math.max(0, WEATHER_SECTIONS.findIndex(s => s.path === pathname))
+  const tab = isDesktop ? routeTab : mobileTab
 
   return (
     <AppLayout>
@@ -1748,7 +1752,7 @@ export default function WeatherPage() {
         <AppBar position="sticky">
           <Toolbar>
             <Box
-              onClick={() => navigate('/weather')}
+              onClick={() => setMobileTab(0)}
               sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
             >
               <WavesIcon sx={{ mr: 1, color: 'primary.light' }} />
@@ -1761,7 +1765,7 @@ export default function WeatherPage() {
               글자 크기를 줄여 한 줄로 표시되게 한다. */}
           <Tabs
             value={tab}
-            onChange={(_, v) => navigate(WEATHER_SECTIONS[v].path)}
+            onChange={(_, v) => setMobileTab(v)}
             variant="fullWidth"
             TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}
             sx={{
