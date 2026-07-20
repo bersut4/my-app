@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -25,7 +25,6 @@ import ListItemText from '@mui/material/ListItemText'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import AddIcon from '@mui/icons-material/Add'
-import ChatIcon from '@mui/icons-material/Chat'
 import ArticleIcon from '@mui/icons-material/Article'
 import CommentIcon from '@mui/icons-material/Comment'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -40,6 +39,8 @@ import AdminBadge from '../components/AdminBadge'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useIsDesktop } from '../hooks/useIsDesktop'
+import { POSTS_SECTIONS } from '../lib/sideNavSections'
 
 const REPORT_REASONS = [
   { value: 'spam', label: '도배' },
@@ -206,21 +207,28 @@ function PostListTab() {
 }
 
 export default function PostsPage() {
-  const [tab, setTab] = useState(0)
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { user, profile } = useAuth()
+  const isDesktop = useIsDesktop()
+  const tab = Math.max(0, POSTS_SECTIONS.findIndex(s => s.path === pathname))
 
   return (
     <AppLayout>
-      <AppBar position="sticky">
-        <Toolbar>
-          <PageHeaderTitle icon={<ArticleIcon sx={{ color: 'primary.light' }} />} title="게시물" />
-          <ThemeToggleButton />
-        </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
-          <Tab label="게시판" icon={<ArticleIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="실시간 채팅" icon={<ChatIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-        </Tabs>
-      </AppBar>
+      {/* 데스크탑에서는 SideNav의 게시물 아코디언으로 하위 탭을 고르므로 이 상단바는 필요 없다. */}
+      {!isDesktop && (
+        <AppBar position="sticky">
+          <Toolbar>
+            <PageHeaderTitle icon={<ArticleIcon sx={{ color: 'primary.light' }} />} title="게시물" />
+            <ThemeToggleButton />
+          </Toolbar>
+          <Tabs value={tab} onChange={(_, v) => navigate(POSTS_SECTIONS[v].path)} variant="fullWidth" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+            {POSTS_SECTIONS.map(({ path, label, icon: Icon }) => (
+              <Tab key={path} label={label} icon={<Icon sx={{ fontSize: 18 }} />} iconPosition="start" />
+            ))}
+          </Tabs>
+        </AppBar>
+      )}
 
       {tab === 0 && <PostListTab />}
       {tab === 1 && <ChatSection user={user} profile={profile} />}

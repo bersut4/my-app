@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -32,10 +32,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Divider from '@mui/material/Divider'
 import WavesIcon from '@mui/icons-material/Waves'
-import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt'
-import MapIcon from '@mui/icons-material/Map'
 import VideocamIcon from '@mui/icons-material/Videocam'
-import WaterIcon from '@mui/icons-material/Water'
 import SearchIcon from '@mui/icons-material/Search'
 import ShareIcon from '@mui/icons-material/Share'
 import CloseIcon from '@mui/icons-material/Close'
@@ -67,7 +64,7 @@ import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } fr
 import { fetchFishingGrounds } from '../lib/fishingGrounds'
 import { fetchFishingIndex, summarizeFishingIndex, FISHING_INDEX_COLOR } from '../lib/fishingIndex'
 import { fetchFisheryLicenses, filterLicensesInBounds, licenseStatus, daysUntilExpiry, FISHERY_CATEGORY_COLOR } from '../lib/fisheryLicenses'
-import { WEATHER_SECTIONS } from '../lib/weatherSections'
+import { WEATHER_SECTIONS } from '../lib/sideNavSections'
 
 // CCTV 스트림 URL엔 KHOA 인증 토큰이 박혀 있어서, 클라이언트 JS 번들에 토큰을 그대로
 // 넣지 않고 Edge Function(cctv-stream-url)에서 카메라 key를 받아 URL을 조립해 돌려준다.
@@ -1728,13 +1725,10 @@ function WindyTab() {
 }
 
 export default function WeatherPage() {
-  const { section } = useParams()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
   const isDesktop = useIsDesktop()
-  const sectionKeys = WEATHER_SECTIONS.map(s => s.key)
-  const tab = Math.max(0, sectionKeys.indexOf(section ?? 'forecast'))
-
-  const goToTab = (index) => navigate(`/weather/${sectionKeys[index]}`)
+  const tab = Math.max(0, WEATHER_SECTIONS.findIndex(s => s.path === pathname))
 
   return (
     <AppLayout>
@@ -1757,7 +1751,7 @@ export default function WeatherPage() {
               글자 크기를 줄여 한 줄로 표시되게 한다. */}
           <Tabs
             value={tab}
-            onChange={(_, v) => goToTab(v)}
+            onChange={(_, v) => navigate(WEATHER_SECTIONS[v].path)}
             variant="fullWidth"
             TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}
             sx={{
@@ -1769,11 +1763,9 @@ export default function WeatherPage() {
               },
             }}
           >
-            <Tab label="예보" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
-            <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
-            <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
-            <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
-            <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
+            {WEATHER_SECTIONS.map(({ path, label, icon: Icon }) => (
+              <Tab key={path} label={label} icon={<Icon sx={{ fontSize: 18 }} />} iconPosition="top" />
+            ))}
           </Tabs>
         </AppBar>
       )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -33,7 +34,6 @@ import EditIcon from '@mui/icons-material/Edit'
 import LockIcon from '@mui/icons-material/Lock'
 import CloseIcon from '@mui/icons-material/Close'
 import Avatar from '@mui/material/Avatar'
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import AppLayout from '../components/layout/AppLayout'
 import PageHeaderTitle from '../components/layout/PageHeaderTitle'
@@ -42,6 +42,8 @@ import KakaoMapView from '../components/KakaoMapView'
 import ThemeToggleButton from '../components/ThemeToggleButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useIsDesktop } from '../hooks/useIsDesktop'
+import { MYPOINTS_SECTIONS, MYPOINTS_ADMIN_SECTION } from '../lib/sideNavSections'
 
 const formatKoreanTime = (timeStr) => {
   if (!timeStr) return ''
@@ -749,8 +751,9 @@ function AdminPointsTab() {
 }
 
 export default function MyPointsPage() {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { user, profile } = useAuth()
-  const [tab, setTab] = useState(0)
   const [points, setPoints] = useState([])
   const [fromPostPoints, setFromPostPoints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -758,6 +761,7 @@ export default function MyPointsPage() {
   const [editPoint, setEditPoint] = useState(null)
   const [selectedPoint, setSelectedPoint] = useState(null)
   const isAdmin = profile?.is_admin
+  const isDesktop = useIsDesktop()
 
   useEffect(() => {
     if (!user) return
@@ -789,28 +793,39 @@ export default function MyPointsPage() {
     </AppLayout>
   )
 
+  const sections = isAdmin ? [...MYPOINTS_SECTIONS, MYPOINTS_ADMIN_SECTION] : MYPOINTS_SECTIONS
+  const tab = Math.max(0, sections.findIndex(s => s.path === pathname))
+  const adminTabIndex = sections.length - 1
   const currentPoints = tab === 0 ? points : fromPostPoints
-  const adminTabIndex = 2
 
   return (
     <AppLayout>
-      <AppBar position="sticky">
-        <Toolbar>
-          <PageHeaderTitle icon={<RoomIcon sx={{ color: 'primary.light' }} />} title="내 포인트" />
-          {!isAdmin && (
-            <>
-              <LockIcon sx={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', mr: 0.5 }} />
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mr: 0.5 }}>나만 볼 수 있어요</Typography>
-            </>
-          )}
-          <ThemeToggleButton />
-        </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isAdmin ? 'scrollable' : 'fullWidth'} scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
-          <Tab label="내 포인트" />
-          <Tab label="저장한 포인트" />
-          {isAdmin && <Tab label="전체 포인트" icon={<AdminPanelSettingsIcon sx={{ fontSize: 16 }} />} iconPosition="start" sx={{ color: '#FFB400', '&.Mui-selected': { color: '#FFB400' } }} />}
-        </Tabs>
-      </AppBar>
+      {/* 데스크탑에서는 SideNav의 내 포인트 아코디언으로 하위 탭을 고르므로 이 상단바는 필요 없다. */}
+      {!isDesktop && (
+        <AppBar position="sticky">
+          <Toolbar>
+            <PageHeaderTitle icon={<RoomIcon sx={{ color: 'primary.light' }} />} title="내 포인트" />
+            {!isAdmin && (
+              <>
+                <LockIcon sx={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', mr: 0.5 }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mr: 0.5 }}>나만 볼 수 있어요</Typography>
+              </>
+            )}
+            <ThemeToggleButton />
+          </Toolbar>
+          <Tabs value={tab} onChange={(_, v) => navigate(sections[v].path)} variant={isAdmin ? 'scrollable' : 'fullWidth'} scrollButtons="auto" TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
+            {sections.map(({ path, label, icon: Icon }, i) => (
+              <Tab
+                key={path}
+                label={label}
+                icon={i === adminTabIndex && isAdmin ? <Icon sx={{ fontSize: 16 }} /> : undefined}
+                iconPosition="start"
+                sx={i === adminTabIndex && isAdmin ? { color: '#FFB400', '&.Mui-selected': { color: '#FFB400' } } : undefined}
+              />
+            ))}
+          </Tabs>
+        </AppBar>
+      )}
 
       {isAdmin && tab === adminTabIndex ? (
         <AdminPointsTab />

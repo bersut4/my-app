@@ -43,12 +43,18 @@ function AppRoutes() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/weather" element={<WeatherPage />} />
-            <Route path="/weather/:section" element={<WeatherPage />} />
+            <Route path="/weather/map" element={<WeatherPage />} />
+            <Route path="/weather/cctv" element={<WeatherPage />} />
+            <Route path="/weather/ocean" element={<WeatherPage />} />
+            <Route path="/weather/tide" element={<WeatherPage />} />
             <Route path="/posts" element={<PostsPage />} />
+            <Route path="/posts/chat" element={<PostsPage />} />
             <Route path="/posts/write" element={<ProtectedRoute><PostWritePage /></ProtectedRoute>} />
             <Route path="/posts/:id/edit" element={<ProtectedRoute><PostEditPage /></ProtectedRoute>} />
             <Route path="/posts/:id" element={<PostDetailPage />} />
             <Route path="/mypoints" element={<ProtectedRoute><MyPointsPage /></ProtectedRoute>} />
+            <Route path="/mypoints/saved" element={<ProtectedRoute><MyPointsPage /></ProtectedRoute>} />
+            <Route path="/mypoints/admin" element={<ProtectedRoute><MyPointsPage /></ProtectedRoute>} />
             <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
             <Route path="/my-posts" element={<ProtectedRoute><MyPostsPage /></ProtectedRoute>} />
             <Route path="/blocked-users" element={<ProtectedRoute><BlockedUsersPage /></ProtectedRoute>} />
