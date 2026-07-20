@@ -1733,12 +1733,17 @@ export default function WeatherPage() {
     <AppLayout>
       <AppBar position="sticky">
         <Toolbar>
-          <WavesIcon sx={{ mr: 1, color: 'primary.light' }} />
-          <Typography variant="h3" sx={{ flexGrow: 1 }}>Sea Hunt</Typography>
+          <Box
+            onClick={() => setTab(0)}
+            sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
+          >
+            <WavesIcon sx={{ mr: 1, color: 'primary.light' }} />
+            <Typography variant="h3">Sea Hunt</Typography>
+          </Box>
           <ThemeToggleButton />
         </Toolbar>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isDesktop ? 'standard' : 'fullWidth'} TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
-          <Tab label="날씨" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="예보" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition="start" />

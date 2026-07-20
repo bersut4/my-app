@@ -31,7 +31,10 @@ export default function SideNav() {
         bgcolor: 'background.paper',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 2.5 }}>
+      <Box
+        onClick={() => navigate('/weather')}
+        sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 2.5, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
+      >
         <WavesIcon sx={{ color: 'primary.light' }} />
         <Typography sx={{ fontSize: '1.3rem', fontWeight: 700 }}>Sea Hunt</Typography>
       </Box>
