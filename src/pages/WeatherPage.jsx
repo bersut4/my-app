@@ -192,6 +192,9 @@ function LiveMapTab() {
   const { mapType } = useMapType()
   const { user } = useAuth()
   const { isFullscreen } = useFullscreen(fullscreenRef)
+  const isDesktop = useIsDesktop()
+  // 데스크탑에서는 상단바(로고+탭)가 없어져서 209px를 뺄 필요가 없다.
+  const contentHeight = isFullscreen || isDesktop ? '100vh' : 'calc(100vh - 209px)'
 
   const [mode, setMode] = useState('pin')
   const [pin, setPin] = useState(null)
@@ -385,7 +388,7 @@ function LiveMapTab() {
 
   if (!ready) {
     return (
-      <Box sx={{ height: 'calc(100vh - 209px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: contentHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress size={28} />
       </Box>
     )
@@ -431,7 +434,7 @@ function LiveMapTab() {
         )}
       </Box>
 
-      <Box ref={containerRef} sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 209px)' }} />
+      <Box ref={containerRef} sx={{ width: '100%', height: contentHeight }} />
 
       {mode === 'pin' && pin && (
         <Paper sx={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 10, p: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -793,6 +796,9 @@ function OceanInfoTab() {
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
   const { isFullscreen } = useFullscreen(fullscreenRef)
+  const isDesktop = useIsDesktop()
+  // 데스크탑에서는 상단바(로고+탭)가 없어져서 209px를 뺄 필요가 없다.
+  const contentHeight = isFullscreen || isDesktop ? '100vh' : 'calc(100vh - 209px)'
 
   const [loading, setLoading] = useState(false)
   const [tooZoomedOut, setTooZoomedOut] = useState(true)
@@ -1058,7 +1064,7 @@ function OceanInfoTab() {
 
   if (!ready) {
     return (
-      <Box sx={{ height: 'calc(100vh - 209px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: contentHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress size={28} />
       </Box>
     )
@@ -1066,7 +1072,7 @@ function OceanInfoTab() {
 
   return (
     <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
-      <Box ref={containerRef} sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 209px)' }} />
+      <Box ref={containerRef} sx={{ width: '100%', height: contentHeight }} />
 
       {/* 범례(수심/어장 면허)와 우측 컨트롤(전체화면/토글 칩)을 한 세로 컨테이너 안에 순서대로
           쌓아서, 좁은 화면에서 내용이 늘어나도 서로 겹치지 않고 아래로 밀려나게 한다 */}
@@ -1674,14 +1680,18 @@ const WINDY_LOCATIONS = [
 function WindyTab() {
   const fullscreenRef = useRef(null)
   const { isFullscreen } = useFullscreen(fullscreenRef)
+  const isDesktop = useIsDesktop()
   const [windyIdx, setWindyIdx] = useState(0)
   const [overlay, setOverlay] = useState('waves')
   const location = WINDY_LOCATIONS[windyIdx]
 
   const src = `https://embed.windy.com/embed2.html?lat=${location.lat}&lon=${location.lng}&detailLat=${location.lat}&detailLon=${location.lng}&zoom=7&level=surface&overlay=${overlay}&product=ecmwf&message=true&marker=true&calendar=now&type=map&location=coordinates&metricWind=default&metricTemp=default`
 
+  // 데스크탑에서는 상단바(로고+탭)가 없어져서 남는 여백만큼 지도를 늘려야 하는데,
+  // 픽셀 값을 다시 추정하는 대신 위 컨트롤(지역 선택/오버레이) 높이는 그대로 두고
+  // 지도 영역만 flex:1로 나머지 공간을 자동으로 채우게 한다.
   return (
-    <Box>
+    <Box sx={isDesktop ? { display: 'flex', flexDirection: 'column', height: '100vh' } : undefined}>
       <Box sx={{ px: 2, pt: 2, pb: 1 }}>
         <FormControl fullWidth size="small">
           <InputLabel>해안 지역 선택</InputLabel>
@@ -1707,12 +1717,12 @@ function WindyTab() {
           ))}
         </ToggleButtonGroup>
       </Box>
-      <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
+      <Box ref={fullscreenRef} sx={{ position: 'relative', ...(isDesktop && !isFullscreen ? { flex: 1, minHeight: 0 } : {}) }}>
         <Box
           key={src}
           component="iframe"
           src={src}
-          sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 240px)', border: 'none', display: 'block' }}
+          sx={{ width: '100%', height: isFullscreen ? '100vh' : isDesktop ? '100%' : 'calc(100vh - 240px)', border: 'none', display: 'block' }}
           allowFullScreen
           title="Windy 실시간 기상 지도"
         />

@@ -31,6 +31,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { supabase } from '../../lib/supabase'
+import { useIsDesktop } from '../../hooks/useIsDesktop'
 
 const REPORT_REASONS = [
   { value: 'spam',          label: '도배 / 스팸' },
@@ -226,6 +227,7 @@ export default function ChatSection({ user, profile }) {
   const bottomRef = useRef(null)
   const fileRef   = useRef(null)
   const isAdmin   = profile?.is_admin
+  const isDesktop = useIsDesktop()
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -337,7 +339,8 @@ export default function ChatSection({ user, profile }) {
   const visibleMessages = messages.filter(m => !blockedIds.includes(m.user_id))
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 170px)' }}>
+    // 데스크탑에서는 게시물 페이지 상단바(로고+탭)가 없어져서 170px를 뺄 필요가 없다.
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: isDesktop ? '100vh' : 'calc(100vh - 170px)' }}>
 
       {/* ── 관리자 신고 패널 ── */}
       {isAdmin && (
