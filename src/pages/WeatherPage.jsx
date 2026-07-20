@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Tabs from '@mui/material/Tabs'
@@ -66,6 +67,7 @@ import { fetchDepthPointsInBounds, depthColor, depthTextColor, DEPTH_LEGEND } fr
 import { fetchFishingGrounds } from '../lib/fishingGrounds'
 import { fetchFishingIndex, summarizeFishingIndex, FISHING_INDEX_COLOR } from '../lib/fishingIndex'
 import { fetchFisheryLicenses, filterLicensesInBounds, licenseStatus, daysUntilExpiry, FISHERY_CATEGORY_COLOR } from '../lib/fisheryLicenses'
+import { WEATHER_SECTIONS } from '../lib/weatherSections'
 
 // CCTV 스트림 URL엔 KHOA 인증 토큰이 박혀 있어서, 클라이언트 JS 번들에 토큰을 그대로
 // 넣지 않고 Edge Function(cctv-stream-url)에서 카메라 key를 받아 URL을 조립해 돌려준다.
@@ -1726,46 +1728,55 @@ function WindyTab() {
 }
 
 export default function WeatherPage() {
-  const [tab, setTab] = useState(0)
+  const { section } = useParams()
+  const navigate = useNavigate()
   const isDesktop = useIsDesktop()
+  const sectionKeys = WEATHER_SECTIONS.map(s => s.key)
+  const tab = Math.max(0, sectionKeys.indexOf(section ?? 'forecast'))
+
+  const goToTab = (index) => navigate(`/weather/${sectionKeys[index]}`)
 
   return (
     <AppLayout>
-      <AppBar position="sticky">
-        <Toolbar>
-          <Box
-            onClick={() => setTab(0)}
-            sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
+      {/* 데스크탑에서는 SideNav의 날씨 아코디언으로 하위 탭을 고르고, 다크모드 토글도
+          SideNav로 옮겨서 이 상단바 자체가 필요 없다. 모바일에서만 보여준다. */}
+      {!isDesktop && (
+        <AppBar position="sticky">
+          <Toolbar>
+            <Box
+              onClick={() => navigate('/weather')}
+              sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
+            >
+              <WavesIcon sx={{ mr: 1, color: 'primary.light' }} />
+              <Typography variant="h3">Sea Hunt</Typography>
+            </Box>
+            <ThemeToggleButton />
+          </Toolbar>
+          {/* 5개 탭이 fullWidth로 좁게 나뉘는데, 아이콘+글자를 한 줄로 두면 "해양정보" 같은
+              4글자 라벨이 한 글자씩 세로로 줄바꿈돼 버려서, 아이콘을 글자 위로 옮기고
+              글자 크기를 줄여 한 줄로 표시되게 한다. */}
+          <Tabs
+            value={tab}
+            onChange={(_, v) => goToTab(v)}
+            variant="fullWidth"
+            TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}
+            sx={{
+              '& .MuiTab-root': {
+                minWidth: 0,
+                px: 0.5,
+                fontSize: '0.68rem',
+                whiteSpace: 'nowrap',
+              },
+            }}
           >
-            <WavesIcon sx={{ mr: 1, color: 'primary.light' }} />
-            <Typography variant="h3">Sea Hunt</Typography>
-          </Box>
-          <ThemeToggleButton />
-        </Toolbar>
-        {/* 모바일에서는 5개 탭이 fullWidth로 좁게 나뉘는데, 아이콘+글자를 한 줄(start)로
-            두면 "해양정보" 같은 4글자 라벨이 한 글자씩 세로로 줄바꿈돼 버린다.
-            아이콘을 글자 위(top)로 옮기고 글자 크기를 줄여서 한 줄로 표시되게 한다. */}
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          variant={isDesktop ? 'standard' : 'fullWidth'}
-          TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}
-          sx={{
-            '& .MuiTab-root': {
-              minWidth: 0,
-              px: { xs: 0.5, md: 2 },
-              fontSize: { xs: '0.68rem', md: '0.875rem' },
-              whiteSpace: 'nowrap',
-            },
-          }}
-        >
-          <Tab label="예보" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
-          <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
-          <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
-          <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
-          <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
-        </Tabs>
-      </AppBar>
+            <Tab label="예보" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
+            <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
+            <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
+            <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
+            <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="top" />
+          </Tabs>
+        </AppBar>
+      )}
 
       {tab === 0 && <WindyTab />}
       {tab === 1 && <LiveMapTab />}

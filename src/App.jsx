@@ -43,6 +43,7 @@ function AppRoutes() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/weather" element={<WeatherPage />} />
+            <Route path="/weather/:section" element={<WeatherPage />} />
             <Route path="/posts" element={<PostsPage />} />
             <Route path="/posts/write" element={<ProtectedRoute><PostWritePage /></ProtectedRoute>} />
             <Route path="/posts/:id/edit" element={<ProtectedRoute><PostEditPage /></ProtectedRoute>} />
