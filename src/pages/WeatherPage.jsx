@@ -188,6 +188,7 @@ function LiveMapTab() {
   const routeMarkersRef = useRef([])
   const routePolylineRef = useRef(null)
   const modeRef = useRef('pin')
+  const skipRelayoutRef = useRef(true)
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
   const { user } = useAuth()
@@ -370,8 +371,11 @@ function LiveMapTab() {
   }
 
   // 카카오맵은 컨테이너 크기가 바뀌어도 스스로 다시 그리지 않아서(전체화면 진입/종료 시
-  // 검은 여백이 남음), relayout으로 캔버스 크기를 맞추고 중심을 다시 설정해준다.
+  // 검은 여백이 남음), relayout으로 캔버스 크기를 맞추고 중심을 다시 설정해준다. 최초
+  // 마운트 시점엔 이 효과가 불필요할 뿐 아니라, 위성 타일이 아직 로딩 중일 때 relayout이
+  // 끼어들면 일부 타일 요청이 씹혀 지도 일부가 빈 채로 남는 문제가 있어 건너뛴다.
   useEffect(() => {
+    if (skipRelayoutRef.current) { skipRelayoutRef.current = false; return }
     if (!mapRef.current) return
     const id = requestAnimationFrame(() => {
       mapRef.current.relayout()
@@ -391,13 +395,10 @@ function LiveMapTab() {
   return (
     <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
       <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <ToggleButtonGroup value={mode} exclusive onChange={switchMode} size="small" fullWidth sx={{ flex: 1, bgcolor: 'background.paper' }}>
-            <ToggleButton value="pin">핀</ToggleButton>
-            <ToggleButton value="route">경로</ToggleButton>
-          </ToggleButtonGroup>
-          <FullscreenToggleButton fullscreenRef={fullscreenRef} />
-        </Box>
+        <ToggleButtonGroup value={mode} exclusive onChange={switchMode} size="small" fullWidth sx={{ bgcolor: 'background.paper' }}>
+          <ToggleButton value="pin">핀</ToggleButton>
+          <ToggleButton value="route">경로</ToggleButton>
+        </ToggleButtonGroup>
 
         <Paper sx={{ display: 'flex', alignItems: 'center', pl: 1.5, pr: 0.5 }}>
           <TextField
@@ -486,6 +487,9 @@ function LiveMapTab() {
           지도를 터치할 때마다 경로에 지점이 추가돼요
         </Typography>
       )}
+
+      {/* 전체화면 버튼은 모든 탭에서 지도 우측 하단으로 위치를 통일한다 */}
+      <FullscreenToggleButton fullscreenRef={fullscreenRef} sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 15 }} />
     </Box>
   )
 }
@@ -786,6 +790,7 @@ function OceanInfoTab() {
   const mapRef = useRef(null)
   const overlaysRef = useRef([])
   const groundOverlaysRef = useRef([])
+  const skipRelayoutRef = useRef(true)
   const { ready } = useKakaoLoader()
   const { mapType } = useMapType()
   const { isFullscreen } = useFullscreen(fullscreenRef)
@@ -796,9 +801,6 @@ function OceanInfoTab() {
   const [showGrounds, setShowGrounds] = useState(true)
   const [fishingGrounds, setFishingGrounds] = useState([])
   const [selectedGround, setSelectedGround] = useState(null)
-  const [groundsOutOfView, setGroundsOutOfView] = useState(false)
-  const fishingGroundsRef = useRef([])
-  const showGroundsRef = useRef(true)
 
   const [showFishingIndex, setShowFishingIndex] = useState(false)
   const [fishingIndexLocations, setFishingIndexLocations] = useState([])
@@ -812,25 +814,6 @@ function OceanInfoTab() {
   const farmsAllRef = useRef([])
   const showFarmsRef = useRef(false)
   useEffect(() => { showFarmsRef.current = showFarms }, [showFarms])
-
-  useEffect(() => { fishingGroundsRef.current = fishingGrounds }, [fishingGrounds])
-  useEffect(() => { showGroundsRef.current = showGrounds }, [showGrounds])
-
-  // 어장정보는 전국 163곳뿐이라 현재 화면 안에 하나도 없을 수 있다(특히 기본 위치인
-  // 해운대 근처는 확대된 상태라 흔함). 그때는 축소해야 보인다는 걸 안내한다.
-  const checkGroundsInView = () => {
-    const map = mapRef.current
-    if (!map) return
-    const grounds = fishingGroundsRef.current
-    if (!showGroundsRef.current || grounds.length === 0) {
-      setGroundsOutOfView(false)
-      return
-    }
-    const { kakao } = window
-    const bounds = map.getBounds()
-    const inView = grounds.some(g => bounds.contain(new kakao.maps.LatLng(g.lat, g.lng)))
-    setGroundsOutOfView(!inView)
-  }
 
   const clearOverlays = () => {
     overlaysRef.current.forEach(o => o.setMap(null))
@@ -972,15 +955,12 @@ function OceanInfoTab() {
       mapTypeId: kakao.maps.MapTypeId[mapType],
     })
     mapRef.current = map
-    // 확대/축소 컨트롤을 왼쪽 중간에 둬서 우측 상단을 전체화면 버튼 자리로 비워둔다
-    // (지도/해양정보 탭 모두 전체화면 버튼을 top:8, right:8에 통일하기 위함)
+    // 확대/축소 컨트롤을 왼쪽 중간에 둬서 우측 상단을 범례/토글 칩 자리로 비워둔다
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.LEFT)
 
     kakao.maps.event.addListener(map, 'idle', loadDepths)
-    kakao.maps.event.addListener(map, 'idle', checkGroundsInView)
     kakao.maps.event.addListener(map, 'idle', loadFarms)
     loadDepths()
-    checkGroundsInView()
     loadFarms()
 
     return () => { clearOverlays(); clearFarmOverlays() }
@@ -1059,15 +1039,16 @@ function OceanInfoTab() {
       })
     })
 
-    checkGroundsInView()
-
     return () => clearGroundOverlays()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fishingGrounds, showGrounds])
 
   // 카카오맵은 컨테이너 크기가 바뀌어도 스스로 다시 그리지 않아서(전체화면 진입/종료 시
-  // 검은 여백이 남음), relayout으로 캔버스 크기를 맞추고 중심을 다시 설정해준다.
+  // 검은 여백이 남음), relayout으로 캔버스 크기를 맞추고 중심을 다시 설정해준다. 최초
+  // 마운트 시점엔 이 효과가 불필요할 뿐 아니라, 위성 타일이 아직 로딩 중일 때 relayout이
+  // 끼어들면 일부 타일 요청이 씹혀 지도 일부가 빈 채로 남는 문제가 있어 건너뛴다.
   useEffect(() => {
+    if (skipRelayoutRef.current) { skipRelayoutRef.current = false; return }
     if (!mapRef.current) return
     const id = requestAnimationFrame(() => {
       mapRef.current.relayout()
@@ -1123,7 +1104,6 @@ function OceanInfoTab() {
         )}
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.6 }}>
-          <FullscreenToggleButton fullscreenRef={fullscreenRef} />
           <Chip
             icon={<PhishingIcon sx={{ fontSize: 16 }} />}
             label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
@@ -1160,17 +1140,15 @@ function OceanInfoTab() {
         </Typography>
       )}
 
-      <Box sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 9, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-        {groundsOutOfView && (
-          <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
-            🎣 이 화면엔 어장정보가 없어요 · 지도를 축소해 보세요
-          </Typography>
-        )}
+      {/* 전체화면 버튼은 모든 탭에서 지도 우측 하단으로 위치를 통일한다.
+          위에 뜨는 안내 메세지는 이 버튼과 겹치지 않게 같은 컨테이너 안에서 위로 쌓인다. */}
+      <Box sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
         {showFarms && farmsTooZoomedOut && (
           <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', px: 1, py: 0.4, borderRadius: 1 }}>
             🦪 지도를 더 확대하면 양식장/어장정보가 표시돼요
           </Typography>
         )}
+        <FullscreenToggleButton fullscreenRef={fullscreenRef} />
       </Box>
 
       {errorMsg && (
