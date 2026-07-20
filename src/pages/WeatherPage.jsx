@@ -1742,12 +1742,28 @@ export default function WeatherPage() {
           </Box>
           <ThemeToggleButton />
         </Toolbar>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isDesktop ? 'standard' : 'fullWidth'} TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}>
-          <Tab label="예보" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-          <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+        {/* 모바일에서는 5개 탭이 fullWidth로 좁게 나뉘는데, 아이콘+글자를 한 줄(start)로
+            두면 "해양정보" 같은 4글자 라벨이 한 글자씩 세로로 줄바꿈돼 버린다.
+            아이콘을 글자 위(top)로 옮기고 글자 크기를 줄여서 한 줄로 표시되게 한다. */}
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant={isDesktop ? 'standard' : 'fullWidth'}
+          TabIndicatorProps={{ style: { backgroundColor: '#00B4D8' } }}
+          sx={{
+            '& .MuiTab-root': {
+              minWidth: 0,
+              px: { xs: 0.5, md: 2 },
+              fontSize: { xs: '0.68rem', md: '0.875rem' },
+              whiteSpace: 'nowrap',
+            },
+          }}
+        >
+          <Tab label="예보" icon={<SatelliteAltIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
+          <Tab label="지도" icon={<MapIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
+          <Tab label="CCTV" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
+          <Tab label="해양정보" icon={<LayersIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
+          <Tab label="물때" icon={<WaterIcon sx={{ fontSize: 18 }} />} iconPosition={isDesktop ? 'start' : 'top'} />
         </Tabs>
       </AppBar>
 
