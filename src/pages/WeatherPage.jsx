@@ -1088,65 +1088,69 @@ function OceanInfoTab() {
     <Box ref={fullscreenRef} sx={{ position: 'relative' }}>
       <Box ref={containerRef} sx={{ width: '100%', height: isFullscreen ? '100vh' : 'calc(100vh - 209px)' }} />
 
-      <Paper sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
-        <LayersIcon sx={{ fontSize: 16, color: 'primary.light' }} />
-        <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>수심</Typography>
-        {DEPTH_LEGEND.map(({ label, color }) => (
-          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: color, border: '1px solid rgba(0,0,0,0.2)' }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{label}</Typography>
-          </Box>
-        ))}
-      </Paper>
-
-      {showFarms && (
-        <Paper sx={{ position: 'absolute', top: 52, left: 8, zIndex: 10, p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', maxWidth: 'calc(100% - 16px)' }}>
-          <SetMealIcon sx={{ fontSize: 16, color: 'primary.light' }} />
-          <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>어장 면허</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#22C55E' }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>유효</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#DC2626' }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>만료</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#9CA3AF' }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>기간정보없음</Typography>
-          </Box>
+      {/* 범례(수심/어장 면허)와 우측 컨트롤(전체화면/토글 칩)을 한 세로 컨테이너 안에 순서대로
+          쌓아서, 좁은 화면에서 내용이 늘어나도 서로 겹치지 않고 아래로 밀려나게 한다 */}
+      <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+        <Paper sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+          <LayersIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>수심</Typography>
+          {DEPTH_LEGEND.map(({ label, color }) => (
+            <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+              <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: color, border: '1px solid rgba(0,0,0,0.2)' }} />
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{label}</Typography>
+            </Box>
+          ))}
         </Paper>
-      )}
 
-      <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.6, maxWidth: 'calc(100% - 16px)' }}>
-        <FullscreenToggleButton fullscreenRef={fullscreenRef} />
-        <Chip
-          icon={<PhishingIcon sx={{ fontSize: 16 }} />}
-          label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
-          size="small"
-          color={showGrounds ? 'primary' : 'default'}
-          variant={showGrounds ? 'filled' : 'outlined'}
-          onClick={() => setShowGrounds(v => !v)}
-          sx={{ bgcolor: showGrounds ? undefined : 'rgba(0,0,0,0.55)', color: showGrounds ? undefined : '#fff' }}
-        />
-        <Chip
-          icon={<QueryStatsIcon sx={{ fontSize: 16 }} />}
-          label={`낚시지수 ${showFishingIndex ? 'ON' : 'OFF'}`}
-          size="small"
-          color={showFishingIndex ? 'primary' : 'default'}
-          variant={showFishingIndex ? 'filled' : 'outlined'}
-          onClick={() => setShowFishingIndex(v => !v)}
-          sx={{ bgcolor: showFishingIndex ? undefined : 'rgba(0,0,0,0.55)', color: showFishingIndex ? undefined : '#fff' }}
-        />
-        <Chip
-          icon={<SetMealIcon sx={{ fontSize: 16 }} />}
-          label={`양식장/어장 ${showFarms ? 'ON' : 'OFF'}`}
-          size="small"
-          color={showFarms ? 'primary' : 'default'}
-          variant={showFarms ? 'filled' : 'outlined'}
-          onClick={() => setShowFarms(v => !v)}
-          sx={{ bgcolor: showFarms ? undefined : 'rgba(0,0,0,0.55)', color: showFarms ? undefined : '#fff' }}
-        />
+        {showFarms && (
+          <Paper sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+            <SetMealIcon sx={{ fontSize: 16, color: 'primary.light' }} />
+            <Typography variant="caption" sx={{ fontWeight: 600, mr: 0.5 }}>어장 면허</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+              <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#22C55E' }} />
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>유효</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+              <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#DC2626' }} />
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>만료</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+              <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: '#9CA3AF' }} />
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>기간정보없음</Typography>
+            </Box>
+          </Paper>
+        )}
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.6 }}>
+          <FullscreenToggleButton fullscreenRef={fullscreenRef} />
+          <Chip
+            icon={<PhishingIcon sx={{ fontSize: 16 }} />}
+            label={`어장정보 ${showGrounds ? 'ON' : 'OFF'}`}
+            size="small"
+            color={showGrounds ? 'primary' : 'default'}
+            variant={showGrounds ? 'filled' : 'outlined'}
+            onClick={() => setShowGrounds(v => !v)}
+            sx={{ bgcolor: showGrounds ? undefined : 'rgba(0,0,0,0.55)', color: showGrounds ? undefined : '#fff' }}
+          />
+          <Chip
+            icon={<QueryStatsIcon sx={{ fontSize: 16 }} />}
+            label={`낚시지수 ${showFishingIndex ? 'ON' : 'OFF'}`}
+            size="small"
+            color={showFishingIndex ? 'primary' : 'default'}
+            variant={showFishingIndex ? 'filled' : 'outlined'}
+            onClick={() => setShowFishingIndex(v => !v)}
+            sx={{ bgcolor: showFishingIndex ? undefined : 'rgba(0,0,0,0.55)', color: showFishingIndex ? undefined : '#fff' }}
+          />
+          <Chip
+            icon={<SetMealIcon sx={{ fontSize: 16 }} />}
+            label={`양식장/어장 ${showFarms ? 'ON' : 'OFF'}`}
+            size="small"
+            color={showFarms ? 'primary' : 'default'}
+            variant={showFarms ? 'filled' : 'outlined'}
+            onClick={() => setShowFarms(v => !v)}
+            sx={{ bgcolor: showFarms ? undefined : 'rgba(0,0,0,0.55)', color: showFarms ? undefined : '#fff' }}
+          />
+        </Box>
       </Box>
 
       {loading && (
