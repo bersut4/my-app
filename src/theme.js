@@ -16,7 +16,7 @@ export const createAppTheme = (fontSize = 'medium', mode = 'dark') => {
     mode: 'dark',
     primary: { main: '#00B4D8', light: '#48CAE4', dark: '#0077B6' },
     secondary: { main: '#0096C7', light: '#ADE8F4', dark: '#023E8A' },
-    background: { default: '#03045E', paper: '#0A1628' },
+    background: { default: '#0A1628', paper: '#0A1628' },
     text: { primary: '#E0F7FA', secondary: '#90E0EF' },
     success: { main: '#52B788' },
     warning: { main: '#F4A261' },
